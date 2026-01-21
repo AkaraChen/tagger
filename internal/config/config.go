@@ -9,12 +9,6 @@ import (
 
 const ConfigFileName = "tagger.config.json"
 const SchemaURL = "https://raw.githubusercontent.com/AkaraChen/tagger/main/tagger.schema.json"
-const Version = "dev"
-
-// GetVersion 获取当前版本号
-func GetVersion() string {
-	return Version
-}
 
 // GitHostingProvider 表示 Git 托管平台类型
 type GitHostingProvider string
