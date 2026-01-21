@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/AkaraChen/tagger/v1.0.0/tagger.schema.json",
+  "title": "Tagger Configuration",
+  "description": "Configuration file for Tagger - Git semantic version tag management tool",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "gitHostingProvider": {
+      "type": "string",
+      "description": "Git hosting provider type",
+      "enum": ["GitHub", "Other"],
+      "default": "GitHub"
+    },
+    "github": {
+      "type": "object",
+      "description": "GitHub-specific configuration",
+      "properties": {
+        "openActionPage": {
+          "type": "boolean",
+          "description": "Whether to open GitHub Actions page after push (true) or repository homepage (false)",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["gitHostingProvider"],
+  "additionalProperties": false
+}

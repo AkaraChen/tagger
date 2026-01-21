@@ -2,11 +2,16 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 )
 
 const ConfigFileName = "tagger.config.json"
+const SchemaURLTemplate = "https://raw.githubusercontent.com/AkaraChen/tagger/%s/tagger.schema.json"
+
+// Version 在构建时通过 ldflags 注入
+var Version = "dev"
 
 // GitHostingProvider 表示 Git 托管平台类型
 type GitHostingProvider string
@@ -24,6 +29,7 @@ type GitHubConfig struct {
 
 // Config 工具的配置文件结构
 type Config struct {
+	Schema             string             `json:"$schema,omitempty"`
 	GitHostingProvider GitHostingProvider `json:"gitHostingProvider"`
 	GitHub             *GitHubConfig      `json:"github,omitempty"`
 }
@@ -67,4 +73,45 @@ func (c *Config) IsGitHub() bool {
 		return false
 	}
 	return c.GitHostingProvider == GitHub
+}
+
+// GetSchemaURL 获取 JSON Schema URL
+func GetSchemaURL() string {
+	version := Version
+	if version == "dev" || version == "" {
+		version = "main"
+	}
+	return fmt.Sprintf(SchemaURLTemplate, version)
+}
+
+// CreateDefault 创建默认配置文件
+func CreateDefault() error {
+	// 检查文件是否已存在
+	configPath := filepath.Join(".", ConfigFileName)
+	if _, err := os.Stat(configPath); err == nil {
+		return fmt.Errorf("config file already exists: %s", configPath)
+	}
+
+	// 创建默认配置
+	openActionPage := true
+	config := Config{
+		Schema:             GetSchemaURL(),
+		GitHostingProvider: GitHub,
+		GitHub: &GitHubConfig{
+			OpenActionPage: &openActionPage,
+		},
+	}
+
+	// 序列化为 JSON（带缩进）
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	// 写入文件
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
 }
