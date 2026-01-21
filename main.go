@@ -6,10 +6,9 @@ import (
 	"os"
 
 	"github.com/AkaraChen/tagger/cmd"
+	"github.com/AkaraChen/tagger/internal/config"
 	"github.com/AkaraChen/tagger/internal/ui"
 )
-
-const version = "1.0.0"
 
 func main() {
 	// 检查是否是 init 子命令
@@ -39,7 +38,7 @@ func main() {
 
 	// 显示版本
 	if *showVersion || *showVersionShort {
-		fmt.Printf("tagger version %s\n", version)
+		fmt.Printf("tagger version %s\n", config.GetVersion())
 		os.Exit(0)
 	}
 
