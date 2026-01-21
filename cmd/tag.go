@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/AkaraChen/tagger/internal/git"
 	"github.com/AkaraChen/tagger/internal/semver"
@@ -188,7 +189,7 @@ func RunTag(message string, autoPush, noPush, dryRun bool) error {
 
 			fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Tag %s pushed to remote successfully!", newVersionStr)))
 
-			// 询问是否打开 GitHub 仓库
+			// 询问是否打开仓库
 			shouldOpenRepo, err := ui.ConfirmOpenRepo()
 			if err != nil && err.Error() != "cancelled" {
 				return fmt.Errorf("failed to confirm open repo: %w", err)
@@ -199,12 +200,22 @@ func RunTag(message string, autoPush, noPush, dryRun bool) error {
 				if err != nil {
 					fmt.Println(ui.ErrorStyle.Render(fmt.Sprintf("✗ Failed to get repository URL: %v", err)))
 				} else {
-					err = openBrowser(repoURL)
+					// 如果是 GitHub 仓库，打开 Actions 页面，否则打开仓库首页
+					targetURL := repoURL
+					if isGitHub(repoURL) {
+						targetURL = repoURL + "/actions"
+					}
+
+					err = openBrowser(targetURL)
 					if err != nil {
 						fmt.Println(ui.ErrorStyle.Render(fmt.Sprintf("✗ Failed to open browser: %v", err)))
-						fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  Repository URL: %s", repoURL)))
+						fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  Repository URL: %s", targetURL)))
 					} else {
-						fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening %s in browser...", repoURL)))
+						if isGitHub(repoURL) {
+							fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening GitHub Actions: %s", targetURL)))
+						} else {
+							fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening %s in browser...", targetURL)))
+						}
 					}
 				}
 			}
@@ -230,4 +241,9 @@ func openBrowser(url string) error {
 	}
 
 	return cmd.Start()
+}
+
+// isGitHub 判断仓库 URL 是否是 GitHub
+func isGitHub(url string) bool {
+	return strings.Contains(url, "github.com")
 }
