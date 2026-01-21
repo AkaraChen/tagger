@@ -5,30 +5,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime/debug"
-	"strings"
 )
 
 const ConfigFileName = "tagger.config.json"
 const SchemaURL = "https://raw.githubusercontent.com/AkaraChen/tagger/main/tagger.schema.json"
+const Version = "dev"
 
 // GetVersion 获取当前版本号
 func GetVersion() string {
-	// 尝试从 runtime/debug 获取版本（go install 时会有）
-	if info, ok := debug.ReadBuildInfo(); ok {
-		// 当使用 go install github.com/xxx@v1.0.0 时，Main.Version 会是 v1.0.0
-		if info.Main.Version != "" && info.Main.Version != "(devel)" {
-			// 检查是否是伪版本（格式: v0.0.0-yyyymmddhhmmss-commithash）
-			// 如果是伪版本，说明没有正式的 tag，返回 dev
-			if strings.HasPrefix(info.Main.Version, "v0.0.0-") {
-				return "dev"
-			}
-			return info.Main.Version
-		}
-	}
-
-	// 默认返回 dev
-	return "dev"
+	return Version
 }
 
 // GitHostingProvider 表示 Git 托管平台类型
