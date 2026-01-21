@@ -160,6 +160,29 @@ func ConfirmPush(version string) (bool, error) {
 	return false, fmt.Errorf("unexpected error")
 }
 
+// ConfirmOpenRepo 确认打开 GitHub 仓库
+func ConfirmOpenRepo() (bool, error) {
+	m := confirmModel{
+		prompt:       "Open GitHub repository in browser?",
+		defaultValue: false,
+	}
+
+	p := tea.NewProgram(m)
+	finalModel, err := p.Run()
+	if err != nil {
+		return false, err
+	}
+
+	if m, ok := finalModel.(confirmModel); ok {
+		if m.cancelled {
+			return false, fmt.Errorf("cancelled")
+		}
+		return m.confirmed, nil
+	}
+
+	return false, fmt.Errorf("unexpected error")
+}
+
 // --- Models ---
 
 // item 实现 list.Item 接口

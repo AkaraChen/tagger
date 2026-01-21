@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os/exec"
+	"runtime"
 
 	"github.com/AkaraChen/tagger/internal/git"
 	"github.com/AkaraChen/tagger/internal/semver"
@@ -185,8 +187,47 @@ func RunTag(message string, autoPush, noPush, dryRun bool) error {
 			}
 
 			fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Tag %s pushed to remote successfully!", newVersionStr)))
+
+			// 询问是否打开 GitHub 仓库
+			shouldOpenRepo, err := ui.ConfirmOpenRepo()
+			if err != nil && err.Error() != "cancelled" {
+				return fmt.Errorf("failed to confirm open repo: %w", err)
+			}
+
+			if shouldOpenRepo {
+				repoURL, err := gitClient.GetRemoteURL()
+				if err != nil {
+					fmt.Println(ui.ErrorStyle.Render(fmt.Sprintf("✗ Failed to get repository URL: %v", err)))
+				} else {
+					err = openBrowser(repoURL)
+					if err != nil {
+						fmt.Println(ui.ErrorStyle.Render(fmt.Sprintf("✗ Failed to open browser: %v", err)))
+						fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  Repository URL: %s", repoURL)))
+					} else {
+						fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening %s in browser...", repoURL)))
+					}
+				}
+			}
 		}
 	}
 
 	return nil
+}
+
+// openBrowser 在默认浏览器中打开 URL
+func openBrowser(url string) error {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	default:
+		return fmt.Errorf("unsupported platform")
+	}
+
+	return cmd.Start()
 }
