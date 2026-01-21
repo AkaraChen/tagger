@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/AkaraChen/tagger/internal/config"
 	"github.com/AkaraChen/tagger/internal/git"
 	"github.com/AkaraChen/tagger/internal/semver"
 	"github.com/AkaraChen/tagger/internal/ui"
@@ -16,6 +17,12 @@ func RunTag(message string, autoPush, noPush, dryRun bool) error {
 	// 1. 初始化
 	gitClient := git.NewGitClient(".")
 	versionMgr := semver.NewVersionManager()
+
+	// 加载配置文件
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
 
 	// 2. 检查是否在 git 仓库中
 	isRepo, err := gitClient.IsGitRepository()
@@ -189,34 +196,11 @@ func RunTag(message string, autoPush, noPush, dryRun bool) error {
 
 			fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Tag %s pushed to remote successfully!", newVersionStr)))
 
-			// 询问是否打开仓库
-			shouldOpenRepo, err := ui.ConfirmOpenRepo()
-			if err != nil && err.Error() != "cancelled" {
-				return fmt.Errorf("failed to confirm open repo: %w", err)
-			}
-
-			if shouldOpenRepo {
-				repoURL, err := gitClient.GetRemoteURL()
-				if err != nil {
-					fmt.Println(ui.ErrorStyle.Render(fmt.Sprintf("✗ Failed to get repository URL: %v", err)))
-				} else {
-					// 如果是 GitHub 仓库，打开 Actions 页面，否则打开仓库首页
-					targetURL := repoURL
-					if isGitHub(repoURL) {
-						targetURL = repoURL + "/actions"
-					}
-
-					err = openBrowser(targetURL)
-					if err != nil {
-						fmt.Println(ui.ErrorStyle.Render(fmt.Sprintf("✗ Failed to open browser: %v", err)))
-						fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  Repository URL: %s", targetURL)))
-					} else {
-						if isGitHub(repoURL) {
-							fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening GitHub Actions: %s", targetURL)))
-						} else {
-							fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening %s in browser...", targetURL)))
-						}
-					}
+			// 处理打开仓库的逻辑，优先使用配置文件
+			if err := handleOpenRepository(cfg, gitClient); err != nil {
+				// 打开仓库失败不应该影响整体流程，只输出错误信息
+				if err.Error() != "cancelled" && err.Error() != "skipped" {
+					fmt.Println(ui.ErrorStyle.Render(fmt.Sprintf("✗ %v", err)))
 				}
 			}
 		}
@@ -253,4 +237,94 @@ func isGitHub(rawURL string) bool {
 
 	// 检查 hostname 是否为 github.com
 	return parsedURL.Hostname() == "github.com"
+}
+
+// handleOpenRepository 处理打开仓库的逻辑，优先使用配置文件
+func handleOpenRepository(cfg *config.Config, gitClient *git.GitClient) error {
+	// 获取远程仓库 URL
+	repoURL, err := gitClient.GetRemoteURL()
+	if err != nil {
+		return fmt.Errorf("failed to get repository URL: %w", err)
+	}
+
+	// 判断是否为 GitHub 仓库
+	isGitHubRepo := isGitHub(repoURL)
+
+	// 变量定义
+	var shouldOpenRepo bool
+	var targetURL string
+
+	// 如果配置文件存在且指定了 gitHostingProvider
+	if cfg != nil && cfg.GitHostingProvider != "" {
+		// 显示检测到的配置信息
+		providerName := string(cfg.GitHostingProvider)
+		fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("ℹ Detected Git Hosting Provider: %s", providerName)))
+
+		// 如果配置指定的是 GitHub
+		if cfg.IsGitHub() {
+			// 检查实际仓库是否为 GitHub
+			if !isGitHubRepo {
+				fmt.Println(ui.InfoStyle.Render("⚠ Warning: Config specifies GitHub, but repository URL is not github.com"))
+			}
+
+			// 根据配置决定目标 URL
+			targetURL = repoURL
+			if cfg.ShouldOpenActionPage() {
+				targetURL = repoURL + "/actions"
+				fmt.Println(ui.InfoStyle.Render("ℹ Opening GitHub Actions page (configured in tagger.config.json)"))
+			} else {
+				fmt.Println(ui.InfoStyle.Render("ℹ Opening repository homepage (configured in tagger.config.json)"))
+			}
+
+			shouldOpenRepo = true
+		} else {
+			// 配置指定为 Other，使用默认行为（询问用户）
+			confirmed, err := ui.ConfirmOpenRepo()
+			if err != nil {
+				if err.Error() == "cancelled" {
+					return fmt.Errorf("cancelled")
+				}
+				return fmt.Errorf("failed to confirm open repo: %w", err)
+			}
+
+			shouldOpenRepo = confirmed
+			targetURL = repoURL
+		}
+	} else {
+		// 没有配置文件，使用原有的交互逻辑
+		confirmed, err := ui.ConfirmOpenRepo()
+		if err != nil {
+			if err.Error() == "cancelled" {
+				return fmt.Errorf("cancelled")
+			}
+			return fmt.Errorf("failed to confirm open repo: %w", err)
+		}
+
+		shouldOpenRepo = confirmed
+
+		// 根据实际 URL 判断是否为 GitHub
+		targetURL = repoURL
+		if isGitHubRepo {
+			targetURL = repoURL + "/actions"
+		}
+	}
+
+	// 如果确定要打开仓库
+	if shouldOpenRepo {
+		err = openBrowser(targetURL)
+		if err != nil {
+			fmt.Println(ui.ErrorStyle.Render(fmt.Sprintf("✗ Failed to open browser: %v", err)))
+			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  Repository URL: %s", targetURL)))
+			return fmt.Errorf("failed to open browser: %w", err)
+		}
+
+		// 根据是否为 GitHub 和是否为 Actions 页面输出不同的成功信息
+		if isGitHubRepo && targetURL == repoURL+"/actions" {
+			fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening GitHub Actions: %s", targetURL)))
+		} else {
+			fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening %s in browser...", targetURL)))
+		}
+	}
+
+	return nil
 }
