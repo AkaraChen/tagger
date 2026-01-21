@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/AkaraChen/tagger/v1.0.0/tagger.schema.json",
+  "$schema": "https://raw.githubusercontent.com/AkaraChen/tagger/main/tagger.schema.json",
   "gitHostingProvider": "GitHub",
   "github": {
     "openActionPage": true
