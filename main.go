@@ -12,6 +12,12 @@ import (
 const version = "1.0.0"
 
 func main() {
+	// 检查是否是 init 子命令
+	if len(os.Args) > 1 && os.Args[1] == "init" {
+		runInitCommand()
+		return
+	}
+
 	// 检查是否是 history 子命令
 	if len(os.Args) > 1 && os.Args[1] == "history" {
 		runHistoryCommand()
@@ -56,6 +62,13 @@ func main() {
 	}
 }
 
+func runInitCommand() {
+	if err := cmd.RunInit(); err != nil {
+		fmt.Fprintln(os.Stderr, ui.ErrorStyle.Render(fmt.Sprintf("Error: %v", err)))
+		os.Exit(1)
+	}
+}
+
 func runHistoryCommand() {
 	// history 命令的参数
 	historyCmd := flag.NewFlagSet("history", flag.ExitOnError)
@@ -73,6 +86,7 @@ func printHelp() {
 
 用法:
   tagger [选项]              创建新的版本标签
+  tagger init                创建配置文件
   tagger history [选项]      显示版本历史
 
 Tag 命令选项:
@@ -88,6 +102,7 @@ History 命令选项:
 
 示例:
   tagger                                    # 交互式创建 tag
+  tagger init                               # 创建配置文件 tagger.config.json
   tagger -m "Release notes"                 # 创建带消息的 tag
   tagger --push                             # 创建 tag 并自动推送
   tagger --dry-run                          # 模拟运行
