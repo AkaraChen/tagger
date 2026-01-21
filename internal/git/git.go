@@ -178,6 +178,39 @@ func (g *GitClient) PushTag(version string) error {
 	return nil
 }
 
+// GetRemoteURL 获取远程仓库的 URL
+func (g *GitClient) GetRemoteURL() (string, error) {
+	remote, err := g.GetRemoteName()
+	if err != nil {
+		return "", err
+	}
+
+	cmd := exec.Command("git", "remote", "get-url", remote)
+	cmd.Dir = g.workDir
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to get remote URL: %w", err)
+	}
+
+	url := strings.TrimSpace(out.String())
+
+	// 转换 SSH URL 为 HTTPS URL
+	// git@github.com:user/repo.git -> https://github.com/user/repo
+	if strings.HasPrefix(url, "git@") {
+		url = strings.TrimPrefix(url, "git@")
+		url = strings.Replace(url, ":", "/", 1)
+		url = "https://" + url
+	}
+
+	// 移除 .git 后缀
+	url = strings.TrimSuffix(url, ".git")
+
+	return url, nil
+}
+
 // GetTagsWithDates 获取所有 tags 及其创建日期
 func (g *GitClient) GetTagsWithDates() ([]TagInfo, error) {
 	cmd := exec.Command("git", "for-each-ref", "--sort=-creatordate", "--format=%(refname:short)|%(creatordate:short)", "refs/tags")
