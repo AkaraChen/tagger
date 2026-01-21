@@ -24,3 +24,7 @@ go.work.sum
 
 # OS
 .DS_Store
+
+# Config files (user-specific, should not be committed)
+tagger.config.json
+tagger.config.test-*.json
