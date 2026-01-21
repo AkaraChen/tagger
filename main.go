@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/AkaraChen/tagger/cmd"
-	"github.com/AkaraChen/tagger/internal/config"
 	"github.com/AkaraChen/tagger/internal/ui"
 )
 
@@ -38,7 +37,7 @@ func main() {
 
 	// 显示版本
 	if *showVersion || *showVersionShort {
-		fmt.Printf("tagger version %s\n", config.GetVersion())
+		fmt.Println("tagger version dev")
 		os.Exit(0)
 	}
 
