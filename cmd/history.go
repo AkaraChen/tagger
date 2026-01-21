@@ -8,10 +8,28 @@ import (
 	"github.com/AkaraChen/tagger/internal/semver"
 	"github.com/AkaraChen/tagger/internal/ui"
 	semverlib "github.com/Masterminds/semver/v3"
+	"github.com/spf13/cobra"
 )
 
-// RunHistory 执行 history 命令，显示版本历史
-func RunHistory(limit int) error {
+var (
+	historyLimit int
+)
+
+var historyCmd = &cobra.Command{
+	Use:   "history",
+	Short: "显示版本历史",
+	Long:  `显示仓库中的语义化版本标签历史`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runHistory(historyLimit)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(historyCmd)
+	historyCmd.Flags().IntVarP(&historyLimit, "limit", "n", 10, "显示的版本数量")
+}
+
+func runHistory(limit int) error {
 	// 1. 初始化
 	gitClient := git.NewGitClient(".")
 	versionMgr := semver.NewVersionManager()
