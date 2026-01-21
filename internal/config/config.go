@@ -72,11 +72,6 @@ func (c *Config) IsGitHub() bool {
 	return c.GitHostingProvider == GitHub
 }
 
-// GetSchemaURL 获取 JSON Schema URL（始终使用 main 分支）
-func GetSchemaURL() string {
-	return SchemaURL
-}
-
 // CreateDefault 创建默认配置文件
 func CreateDefault() error {
 	// 检查文件是否已存在
@@ -88,7 +83,7 @@ func CreateDefault() error {
 	// 创建默认配置
 	openActionPage := true
 	config := Config{
-		Schema:             GetSchemaURL(),
+		Schema:             SchemaURL,
 		GitHostingProvider: GitHub,
 		GitHub: &GitHubConfig{
 			OpenActionPage: &openActionPage,
