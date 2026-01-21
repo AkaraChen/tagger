@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"net/url"
 	"os/exec"
 	"runtime"
-	"strings"
 
 	"github.com/AkaraChen/tagger/internal/git"
 	"github.com/AkaraChen/tagger/internal/semver"
@@ -244,6 +244,13 @@ func openBrowser(url string) error {
 }
 
 // isGitHub 判断仓库 URL 是否是 GitHub
-func isGitHub(url string) bool {
-	return strings.Contains(url, "github.com")
+// TODO: 暂不支持 GitHub Enterprise，仅支持 github.com
+func isGitHub(rawURL string) bool {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	// 检查 hostname 是否为 github.com
+	return parsedURL.Hostname() == "github.com"
 }
