@@ -11,9 +11,9 @@ import (
 type PreReleaseAction string
 
 const (
-	PreReleaseActionBump   PreReleaseAction = "bump"
+	PreReleaseActionBump    PreReleaseAction = "bump"
 	PreReleaseActionAdvance PreReleaseAction = "advance"
-	PreReleaseActionStable PreReleaseAction = "stable"
+	PreReleaseActionStable  PreReleaseAction = "stable"
 )
 
 // PreReleaseOption 表示一个可用的预发布版本操作选项

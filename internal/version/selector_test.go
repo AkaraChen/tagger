@@ -21,12 +21,12 @@ func TestSelector_GetPreReleaseOptions(t *testing.T) {
 	s := NewSelector()
 
 	tests := []struct {
-		name          string
-		current       string
-		versions      []string
-		wantLen       int
-		wantActions   []PreReleaseAction
-		wantErr       bool
+		name        string
+		current     string
+		versions    []string
+		wantLen     int
+		wantActions []PreReleaseAction
+		wantErr     bool
 	}{
 		{
 			name:        "alpha version - all three options",
@@ -140,9 +140,9 @@ func TestSelector_GetStableBumpOptions(t *testing.T) {
 	s := NewSelector()
 
 	tests := []struct {
-		name        string
-		current     string
-		wantTypes   []string
+		name         string
+		current      string
+		wantTypes    []string
 		wantVersions []string
 	}{
 		{
@@ -197,11 +197,11 @@ func TestSelector_CalculateBumpedVersion(t *testing.T) {
 	s := NewSelector()
 
 	tests := []struct {
-		name      string
-		current   string
-		bumpType  string
-		want      string
-		wantErr   bool
+		name     string
+		current  string
+		bumpType string
+		want     string
+		wantErr  bool
 	}{
 		{"patch bump", "1.0.0", "patch", "1.0.1", false},
 		{"minor bump", "1.0.0", "minor", "1.1.0", false},
@@ -240,27 +240,27 @@ func TestSelector_GetPreReleaseTypeOptions(t *testing.T) {
 	s := NewSelector()
 
 	tests := []struct {
-		name              string
-		baseVersion       string
-		versions          []string
-		wantTypes         []semver.PreReleaseType
-		wantVersions      []string
-		wantLatestInfo    []string
+		name           string
+		baseVersion    string
+		versions       []string
+		wantTypes      []semver.PreReleaseType
+		wantVersions   []string
+		wantLatestInfo []string
 	}{
 		{
-			name:        "new pre-release from scratch",
-			baseVersion: "1.0.1",
-			versions:    []string{"1.0.0"},
-			wantTypes:   []semver.PreReleaseType{semver.PreReleaseAlpha, semver.PreReleaseBeta, semver.PreReleaseRC},
-			wantVersions: []string{"v1.0.1-alpha-1", "v1.0.1-beta-1", "v1.0.1-rc-1"},
+			name:           "new pre-release from scratch",
+			baseVersion:    "1.0.1",
+			versions:       []string{"1.0.0"},
+			wantTypes:      []semver.PreReleaseType{semver.PreReleaseAlpha, semver.PreReleaseBeta, semver.PreReleaseRC},
+			wantVersions:   []string{"v1.0.1-alpha-1", "v1.0.1-beta-1", "v1.0.1-rc-1"},
 			wantLatestInfo: []string{"", "", ""},
 		},
 		{
-			name:        "with existing pre-releases",
-			baseVersion: "1.0.0",
-			versions:    []string{"1.0.0-alpha-2", "1.0.0-beta-1"},
-			wantTypes:   []semver.PreReleaseType{semver.PreReleaseAlpha, semver.PreReleaseBeta, semver.PreReleaseRC},
-			wantVersions: []string{"v1.0.0-alpha-3", "v1.0.0-beta-2", "v1.0.0-rc-1"},
+			name:           "with existing pre-releases",
+			baseVersion:    "1.0.0",
+			versions:       []string{"1.0.0-alpha-2", "1.0.0-beta-1"},
+			wantTypes:      []semver.PreReleaseType{semver.PreReleaseAlpha, semver.PreReleaseBeta, semver.PreReleaseRC},
+			wantVersions:   []string{"v1.0.0-alpha-3", "v1.0.0-beta-2", "v1.0.0-rc-1"},
 			wantLatestInfo: []string{"v1.0.0-alpha-2", "v1.0.0-beta-1", ""},
 		},
 	}

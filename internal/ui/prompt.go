@@ -209,9 +209,9 @@ func ConfirmPreRelease() (bool, error) {
 
 // PreReleaseTypeOption represents an option for pre-release type selection
 type PreReleaseTypeOption struct {
-	Type        semver.PreReleaseType
-	NewVersion  string
-	LatestInfo  string
+	Type       semver.PreReleaseType
+	NewVersion string
+	LatestInfo string
 }
 
 // SelectPreReleaseType allows user to select pre-release type (alpha/beta/rc)
