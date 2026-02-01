@@ -8,6 +8,7 @@ import (
 	"github.com/AkaraChen/tagger/internal/git"
 	"github.com/AkaraChen/tagger/internal/semver"
 	"github.com/AkaraChen/tagger/internal/ui"
+	"github.com/AkaraChen/tagger/internal/version"
 )
 
 // TagOptions 包含创建 tag 的所有选项
@@ -58,6 +59,7 @@ func RunTag(opts TagOptions) error {
 
 	ctx := &tagContext{
 		versionMgr:     versionMgr,
+		selector:       version.NewSelector(),
 		versions:       versions,
 		currentVersion: versionMgr.GetLatestVersion(versions),
 		opts:           opts,

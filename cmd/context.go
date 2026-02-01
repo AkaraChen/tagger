@@ -5,12 +5,14 @@ import (
 
 	"github.com/AkaraChen/tagger/internal/semver"
 	"github.com/AkaraChen/tagger/internal/ui"
+	"github.com/AkaraChen/tagger/internal/version"
 	sv "github.com/Masterminds/semver/v3"
 )
 
 // tagContext 包含 tag 操作的上下文
 type tagContext struct {
 	versionMgr     *semver.VersionManager
+	selector       *version.Selector
 	versions       []*sv.Version
 	currentVersion *sv.Version
 	opts           TagOptions
@@ -49,51 +51,32 @@ func (ctx *tagContext) displayVersionStatus() {
 }
 
 func (ctx *tagContext) handleExistingPreRelease() (string, error) {
-	info := ctx.versionMgr.GetPreReleaseInfo(ctx.currentVersion)
-	if info == nil {
-		return "", fmt.Errorf("failed to parse pre-release info")
-	}
-
 	if ctx.opts.PreReleaseType != "" {
 		return ctx.handleNonInteractivePreRelease()
 	}
 
-	var options []ui.PreReleaseActionOption
-
-	if bumpedVersion, err := ctx.versionMgr.BumpPreRelease(ctx.currentVersion); err == nil {
-		options = append(options, ui.PreReleaseActionOption{
-			Action:     ui.PreReleaseActionBump,
-			NewVersion: ctx.versionMgr.FormatVersion(bumpedVersion),
-			Desc:       fmt.Sprintf("increment %s number", info.Type),
-		})
+	options, err := ctx.selector.GetPreReleaseOptions(ctx.currentVersion, ctx.versions)
+	if err != nil {
+		return "", fmt.Errorf("failed to get pre-release options: %w", err)
 	}
 
-	if info.Type != semver.PreReleaseRC {
-		if advancedVersion, err := ctx.versionMgr.NextPreReleaseStage(ctx.currentVersion); err == nil {
-			advancedInfo := ctx.versionMgr.GetPreReleaseInfo(advancedVersion)
-			options = append(options, ui.PreReleaseActionOption{
-				Action:     ui.PreReleaseActionAdvance,
-				NewVersion: ctx.versionMgr.FormatVersion(advancedVersion),
-				Desc:       fmt.Sprintf("%s → %s", info.Type, advancedInfo.Type),
-			})
+	// Convert internal/version options to ui options
+	uiOptions := make([]ui.PreReleaseActionOption, len(options))
+	for i, opt := range options {
+		uiOptions[i] = ui.PreReleaseActionOption{
+			Action:     ui.PreReleaseAction(opt.Action),
+			NewVersion: opt.NewVersion,
+			Desc:       opt.Desc,
 		}
 	}
 
-	if stableVersion, err := ctx.versionMgr.ReleaseStable(ctx.currentVersion); err == nil {
-		options = append(options, ui.PreReleaseActionOption{
-			Action:     ui.PreReleaseActionStable,
-			NewVersion: ctx.versionMgr.FormatVersion(stableVersion),
-			Desc:       "release as stable",
-		})
-	}
-
-	action, err := ui.SelectPreReleaseAction(ctx.currentVersionStr(), options)
+	action, err := ui.SelectPreReleaseAction(ctx.currentVersionStr(), uiOptions)
 	if err != nil {
 		return "", err
 	}
 
 	for _, opt := range options {
-		if opt.Action == action {
+		if opt.Action == version.PreReleaseAction(action) {
 			return opt.NewVersion, nil
 		}
 	}
@@ -106,18 +89,24 @@ func (ctx *tagContext) handleStableVersion() (string, error) {
 		return ctx.handleNonInteractivePreRelease()
 	}
 
-	bumpOptions := []ui.BumpTypeOption{
-		{Type: "patch", NewVersion: ctx.versionMgr.FormatVersion(ctx.versionMgr.BumpPatch(ctx.currentVersion)), Desc: "补丁更新"},
-		{Type: "minor", NewVersion: ctx.versionMgr.FormatVersion(ctx.versionMgr.BumpMinor(ctx.currentVersion)), Desc: "小版本更新"},
-		{Type: "major", NewVersion: ctx.versionMgr.FormatVersion(ctx.versionMgr.BumpMajor(ctx.currentVersion)), Desc: "大版本更新"},
+	options := ctx.selector.GetStableBumpOptions(ctx.currentVersion)
+
+	// Convert internal/version options to ui options
+	uiOptions := make([]ui.BumpTypeOption, len(options))
+	for i, opt := range options {
+		uiOptions[i] = ui.BumpTypeOption{
+			Type:       opt.Type,
+			NewVersion: opt.NewVersion,
+			Desc:       opt.Desc,
+		}
 	}
 
-	bumpType, err := ui.SelectBumpType(ctx.currentVersionStr(), bumpOptions)
+	bumpType, err := ui.SelectBumpType(ctx.currentVersionStr(), uiOptions)
 	if err != nil {
 		return "", err
 	}
 
-	newVersion, err := ctx.versionMgr.CalculateNewVersion(ctx.currentVersion, bumpType)
+	newVersion, err := ctx.selector.CalculateBumpedVersion(ctx.currentVersion, bumpType)
 	if err != nil {
 		return "", fmt.Errorf("failed to calculate new version: %w", err)
 	}
@@ -135,38 +124,19 @@ func (ctx *tagContext) handleStableVersion() (string, error) {
 }
 
 func (ctx *tagContext) selectPreReleaseType(baseVersion *sv.Version) (string, error) {
-	latestPreReleases := ctx.versionMgr.GetLatestPreReleases(ctx.versions, baseVersion)
+	options := ctx.selector.GetPreReleaseTypeOptions(baseVersion, ctx.versions)
 
-	var options []ui.PreReleaseTypeOption
-
-	for _, preType := range []semver.PreReleaseType{semver.PreReleaseAlpha, semver.PreReleaseBeta, semver.PreReleaseRC} {
-		num := ctx.versionMgr.FindNextPreReleaseNumber(ctx.versions, baseVersion, preType)
-		version, _ := ctx.versionMgr.SetPreRelease(baseVersion, preType, num)
-
-		var latestInfo string
-		switch preType {
-		case semver.PreReleaseAlpha:
-			if latestPreReleases.Alpha != nil {
-				latestInfo = "v" + latestPreReleases.Alpha.String()
-			}
-		case semver.PreReleaseBeta:
-			if latestPreReleases.Beta != nil {
-				latestInfo = "v" + latestPreReleases.Beta.String()
-			}
-		case semver.PreReleaseRC:
-			if latestPreReleases.RC != nil {
-				latestInfo = "v" + latestPreReleases.RC.String()
-			}
+	// Convert internal/version options to ui options
+	uiOptions := make([]ui.PreReleaseTypeOption, len(options))
+	for i, opt := range options {
+		uiOptions[i] = ui.PreReleaseTypeOption{
+			Type:       opt.Type,
+			NewVersion: opt.NewVersion,
+			LatestInfo: opt.LatestInfo,
 		}
-
-		options = append(options, ui.PreReleaseTypeOption{
-			Type:       preType,
-			NewVersion: ctx.versionMgr.FormatVersion(version),
-			LatestInfo: latestInfo,
-		})
 	}
 
-	selectedType, err := ui.SelectPreReleaseType(ctx.currentVersionStr(), options)
+	selectedType, err := ui.SelectPreReleaseType(ctx.currentVersionStr(), uiOptions)
 	if err != nil {
 		return "", err
 	}
@@ -181,32 +151,10 @@ func (ctx *tagContext) selectPreReleaseType(baseVersion *sv.Version) (string, er
 }
 
 func (ctx *tagContext) handleNonInteractivePreRelease() (string, error) {
-	var preType semver.PreReleaseType
-	switch ctx.opts.PreReleaseType {
-	case "alpha":
-		preType = semver.PreReleaseAlpha
-	case "beta":
-		preType = semver.PreReleaseBeta
-	case "rc":
-		preType = semver.PreReleaseRC
-	default:
-		return "", fmt.Errorf("invalid pre-release type: %s (must be alpha, beta, or rc)", ctx.opts.PreReleaseType)
-	}
-
-	num := ctx.opts.PreReleaseNum
-	if num <= 0 {
-		num = 1
-	}
-
-	baseVersion := ctx.currentVersion
-	if !ctx.versionMgr.IsPreRelease(ctx.currentVersion) {
-		baseVersion = ctx.versionMgr.BumpPatch(ctx.currentVersion)
-	}
-
-	newVersion, err := ctx.versionMgr.SetPreRelease(baseVersion, preType, num)
-	if err != nil {
-		return "", fmt.Errorf("failed to create pre-release version: %w", err)
-	}
-
-	return ctx.versionMgr.FormatVersion(newVersion), nil
+	return ctx.selector.CalculateNonInteractiveVersion(
+		ctx.currentVersion,
+		ctx.versions,
+		ctx.opts.PreReleaseType,
+		ctx.opts.PreReleaseNum,
+	)
 }
