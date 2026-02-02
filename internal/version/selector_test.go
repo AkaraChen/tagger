@@ -3,7 +3,6 @@ package version
 import (
 	"testing"
 
-	"github.com/AkaraChen/tagger/internal/semver"
 	sv "github.com/Masterminds/semver/v3"
 )
 
@@ -30,24 +29,24 @@ func TestSelector_GetPreReleaseOptions(t *testing.T) {
 	}{
 		{
 			name:        "alpha version - all three options",
-			current:     "1.0.0-alpha-1",
-			versions:    []string{"1.0.0-alpha-1"},
+			current:     "1.0.0-alpha1",
+			versions:    []string{"1.0.0-alpha1"},
 			wantLen:     3,
 			wantActions: []PreReleaseAction{PreReleaseActionBump, PreReleaseActionAdvance, PreReleaseActionStable},
 			wantErr:     false,
 		},
 		{
 			name:        "beta version - all three options",
-			current:     "1.0.0-beta-2",
-			versions:    []string{"1.0.0-beta-2"},
+			current:     "1.0.0-beta2",
+			versions:    []string{"1.0.0-beta2"},
 			wantLen:     3,
 			wantActions: []PreReleaseAction{PreReleaseActionBump, PreReleaseActionAdvance, PreReleaseActionStable},
 			wantErr:     false,
 		},
 		{
 			name:        "rc version - no advance option",
-			current:     "1.0.0-rc-1",
-			versions:    []string{"1.0.0-rc-1"},
+			current:     "1.0.0-rc1",
+			versions:    []string{"1.0.0-rc1"},
 			wantLen:     2,
 			wantActions: []PreReleaseAction{PreReleaseActionBump, PreReleaseActionStable},
 			wantErr:     false,
@@ -105,7 +104,7 @@ func TestSelector_GetPreReleaseOptions_Content(t *testing.T) {
 	s := NewSelector()
 
 	t.Run("alpha version generates correct versions", func(t *testing.T) {
-		current, _ := sv.NewVersion("1.0.0-alpha-1")
+		current, _ := sv.NewVersion("1.0.0-alpha1")
 		versions := []*sv.Version{current}
 
 		options, err := s.GetPreReleaseOptions(current, versions)
@@ -114,16 +113,16 @@ func TestSelector_GetPreReleaseOptions_Content(t *testing.T) {
 		}
 
 		// Check bump option
-		if options[0].NewVersion != "v1.0.0-alpha-2" {
-			t.Errorf("bump option version = %s, want v1.0.0-alpha-2", options[0].NewVersion)
+		if options[0].NewVersion != "v1.0.0-alpha2" {
+			t.Errorf("bump option version = %s, want v1.0.0-alpha2", options[0].NewVersion)
 		}
 		if options[0].Desc != "increment alpha number" {
 			t.Errorf("bump option desc = %s, want 'increment alpha number'", options[0].Desc)
 		}
 
 		// Check advance option
-		if options[1].NewVersion != "v1.0.0-beta-1" {
-			t.Errorf("advance option version = %s, want v1.0.0-beta-1", options[1].NewVersion)
+		if options[1].NewVersion != "v1.0.0-beta1" {
+			t.Errorf("advance option version = %s, want v1.0.0-beta1", options[1].NewVersion)
 		}
 		if options[1].Desc != "alpha → beta" {
 			t.Errorf("advance option desc = %s, want 'alpha → beta'", options[1].Desc)
@@ -243,7 +242,7 @@ func TestSelector_GetPreReleaseTypeOptions(t *testing.T) {
 		name           string
 		baseVersion    string
 		versions       []string
-		wantTypes      []semver.PreReleaseType
+		wantTypes      []string
 		wantVersions   []string
 		wantLatestInfo []string
 	}{
@@ -251,17 +250,17 @@ func TestSelector_GetPreReleaseTypeOptions(t *testing.T) {
 			name:           "new pre-release from scratch",
 			baseVersion:    "1.0.1",
 			versions:       []string{"1.0.0"},
-			wantTypes:      []semver.PreReleaseType{semver.PreReleaseAlpha, semver.PreReleaseBeta, semver.PreReleaseRC},
-			wantVersions:   []string{"v1.0.1-alpha-1", "v1.0.1-beta-1", "v1.0.1-rc-1"},
+			wantTypes:      []string{"alpha", "beta", "rc"},
+			wantVersions:   []string{"v1.0.1-alpha1", "v1.0.1-beta1", "v1.0.1-rc1"},
 			wantLatestInfo: []string{"", "", ""},
 		},
 		{
 			name:           "with existing pre-releases",
 			baseVersion:    "1.0.0",
-			versions:       []string{"1.0.0-alpha-2", "1.0.0-beta-1"},
-			wantTypes:      []semver.PreReleaseType{semver.PreReleaseAlpha, semver.PreReleaseBeta, semver.PreReleaseRC},
-			wantVersions:   []string{"v1.0.0-alpha-3", "v1.0.0-beta-2", "v1.0.0-rc-1"},
-			wantLatestInfo: []string{"v1.0.0-alpha-2", "v1.0.0-beta-1", ""},
+			versions:       []string{"1.0.0-alpha2", "1.0.0-beta1"},
+			wantTypes:      []string{"alpha", "beta", "rc"},
+			wantVersions:   []string{"v1.0.0-alpha3", "v1.0.0-beta2", "v1.0.0-rc1"},
+			wantLatestInfo: []string{"v1.0.0-alpha2", "v1.0.0-beta1", ""},
 		},
 	}
 
@@ -301,19 +300,19 @@ func TestSelector_GetPreReleaseTypeOptions_FilterByBaseVersion(t *testing.T) {
 	// Only pre-releases for 1.0.0 should be considered, not 1.0.1
 	base, _ := sv.NewVersion("1.0.0")
 	versions := []*sv.Version{
-		mustParse("1.0.0-alpha-5"),
-		mustParse("1.0.0-alpha-3"),
-		mustParse("1.0.1-alpha-1"), // should be ignored
+		mustParse("1.0.0-alpha5"),
+		mustParse("1.0.0-alpha3"),
+		mustParse("1.0.1-alpha1"), // should be ignored
 	}
 
 	options := s.GetPreReleaseTypeOptions(base, versions)
 
-	// Alpha should suggest alpha-6 (next after alpha-5)
-	if options[0].NewVersion != "v1.0.0-alpha-6" {
-		t.Errorf("alpha option = %s, want v1.0.0-alpha-6", options[0].NewVersion)
+	// Alpha should suggest alpha6 (next after alpha5)
+	if options[0].NewVersion != "v1.0.0-alpha6" {
+		t.Errorf("alpha option = %s, want v1.0.0-alpha6", options[0].NewVersion)
 	}
-	if options[0].LatestInfo != "v1.0.0-alpha-5" {
-		t.Errorf("alpha latestInfo = %s, want v1.0.0-alpha-5", options[0].LatestInfo)
+	if options[0].LatestInfo != "v1.0.0-alpha5" {
+		t.Errorf("alpha latestInfo = %s, want v1.0.0-alpha5", options[0].LatestInfo)
 	}
 }
 
@@ -335,7 +334,7 @@ func TestSelector_CalculateNonInteractiveVersion(t *testing.T) {
 			versions:       []string{"1.0.0"},
 			preReleaseType: "alpha",
 			preReleaseNum:  1,
-			want:           "v1.0.1-alpha-1",
+			want:           "v1.0.1-alpha1",
 			wantErr:        false,
 		},
 		{
@@ -344,16 +343,16 @@ func TestSelector_CalculateNonInteractiveVersion(t *testing.T) {
 			versions:       []string{"1.0.0"},
 			preReleaseType: "beta",
 			preReleaseNum:  5,
-			want:           "v1.0.1-beta-5",
+			want:           "v1.0.1-beta5",
 			wantErr:        false,
 		},
 		{
 			name:           "pre-release to alpha",
-			current:        "1.0.0-beta-1",
-			versions:       []string{"1.0.0-beta-1"},
+			current:        "1.0.0-beta1",
+			versions:       []string{"1.0.0-beta1"},
 			preReleaseType: "alpha",
 			preReleaseNum:  1,
-			want:           "v1.0.0-alpha-1",
+			want:           "v1.0.0-alpha1",
 			wantErr:        false,
 		},
 		{
@@ -362,7 +361,7 @@ func TestSelector_CalculateNonInteractiveVersion(t *testing.T) {
 			versions:       []string{"1.0.0"},
 			preReleaseType: "rc",
 			preReleaseNum:  0,
-			want:           "v1.0.1-rc-1",
+			want:           "v1.0.1-rc1",
 			wantErr:        false,
 		},
 		{
@@ -371,7 +370,7 @@ func TestSelector_CalculateNonInteractiveVersion(t *testing.T) {
 			versions:       []string{"1.0.0"},
 			preReleaseType: "rc",
 			preReleaseNum:  -5,
-			want:           "v1.0.1-rc-1",
+			want:           "v1.0.1-rc1",
 			wantErr:        false,
 		},
 		{
@@ -443,24 +442,24 @@ func TestSelector_CalculateNonInteractiveVersion_PreReleaseVariations(t *testing
 	}{
 		{
 			name:           "pre-release to beta",
-			current:        "1.0.0-alpha-1",
+			current:        "1.0.0-alpha1",
 			preReleaseType: "beta",
 			preReleaseNum:  1,
-			want:           "v1.0.0-beta-1",
+			want:           "v1.0.0-beta1",
 		},
 		{
 			name:           "pre-release to rc",
-			current:        "1.0.0-beta-2",
+			current:        "1.0.0-beta2",
 			preReleaseType: "rc",
 			preReleaseNum:  3,
-			want:           "v1.0.0-rc-3",
+			want:           "v1.0.0-rc3",
 		},
 		{
 			name:           "same pre-release type bump",
-			current:        "1.0.0-alpha-5",
+			current:        "1.0.0-alpha5",
 			preReleaseType: "alpha",
 			preReleaseNum:  10,
-			want:           "v1.0.0-alpha-10",
+			want:           "v1.0.0-alpha10",
 		},
 	}
 
@@ -487,22 +486,22 @@ func TestSelector_GetPreReleaseTypeOptions_WithAllRC(t *testing.T) {
 
 	base, _ := sv.NewVersion("2.0.0")
 	versions := []*sv.Version{
-		mustParse("2.0.0-rc-1"),
-		mustParse("2.0.0-rc-3"),
+		mustParse("2.0.0-rc1"),
+		mustParse("2.0.0-rc3"),
 	}
 
 	options := s.GetPreReleaseTypeOptions(base, versions)
 
-	// RC should show rc-4 as next
+	// RC should show rc4 as next
 	rcOption := options[2]
-	if rcOption.Type != semver.PreReleaseRC {
+	if rcOption.Type != "rc" {
 		t.Errorf("expected RC type, got %v", rcOption.Type)
 	}
-	if rcOption.NewVersion != "v2.0.0-rc-4" {
-		t.Errorf("RC next version = %s, want v2.0.0-rc-4", rcOption.NewVersion)
+	if rcOption.NewVersion != "v2.0.0-rc4" {
+		t.Errorf("RC next version = %s, want v2.0.0-rc4", rcOption.NewVersion)
 	}
-	if rcOption.LatestInfo != "v2.0.0-rc-3" {
-		t.Errorf("RC latest info = %s, want v2.0.0-rc-3", rcOption.LatestInfo)
+	if rcOption.LatestInfo != "v2.0.0-rc3" {
+		t.Errorf("RC latest info = %s, want v2.0.0-rc3", rcOption.LatestInfo)
 	}
 }
 
@@ -510,7 +509,7 @@ func TestSelector_GetPreReleaseOptions_EdgeCases(t *testing.T) {
 	s := NewSelector()
 
 	t.Run("high number pre-release", func(t *testing.T) {
-		current, _ := sv.NewVersion("1.0.0-alpha-999")
+		current, _ := sv.NewVersion("1.0.0-alpha999")
 		versions := []*sv.Version{current}
 
 		options, err := s.GetPreReleaseOptions(current, versions)
@@ -518,14 +517,14 @@ func TestSelector_GetPreReleaseOptions_EdgeCases(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		// Check bump suggests alpha-1000
-		if options[0].NewVersion != "v1.0.0-alpha-1000" {
-			t.Errorf("bump version = %s, want v1.0.0-alpha-1000", options[0].NewVersion)
+		// Check bump suggests alpha1000
+		if options[0].NewVersion != "v1.0.0-alpha1000" {
+			t.Errorf("bump version = %s, want v1.0.0-alpha1000", options[0].NewVersion)
 		}
 	})
 
 	t.Run("beta to rc advance", func(t *testing.T) {
-		current, _ := sv.NewVersion("1.0.0-beta-5")
+		current, _ := sv.NewVersion("1.0.0-beta5")
 		versions := []*sv.Version{current}
 
 		options, err := s.GetPreReleaseOptions(current, versions)
@@ -543,8 +542,8 @@ func TestSelector_GetPreReleaseOptions_EdgeCases(t *testing.T) {
 		for _, opt := range options {
 			if opt.Action == PreReleaseActionAdvance {
 				advanceFound = true
-				if opt.NewVersion != "v1.0.0-rc-1" {
-					t.Errorf("advance version = %s, want v1.0.0-rc-1", opt.NewVersion)
+				if opt.NewVersion != "v1.0.0-rc1" {
+					t.Errorf("advance version = %s, want v1.0.0-rc1", opt.NewVersion)
 				}
 				if opt.Desc != "beta → rc" {
 					t.Errorf("advance desc = %s, want 'beta → rc'", opt.Desc)
@@ -563,10 +562,10 @@ func TestSelector_GetStableBumpOptions_PreReleaseBase(t *testing.T) {
 	// From pre-release, bump options work on the base version (pre-release stripped)
 	// Note: Masterminds/semver IncPatch/IncMinor/IncMajor on pre-release strips the pre-release
 	// but doesn't increment the version number - this is the library's behavior
-	current, _ := sv.NewVersion("1.5.3-alpha-1")
+	current, _ := sv.NewVersion("1.5.3-alpha1")
 	options := s.GetStableBumpOptions(current)
 
-	// For pre-release 1.5.3-alpha-1:
+	// For pre-release 1.5.3-alpha1:
 	// - IncPatch returns 1.5.3 (strips pre-release, no increment)
 	// - IncMinor returns 1.6.0
 	// - IncMajor returns 2.0.0

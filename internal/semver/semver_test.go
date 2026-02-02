@@ -43,7 +43,7 @@ func TestParseTags(t *testing.T) {
 		},
 		{
 			name:     "pre-release tags",
-			tags:     []string{"v1.0.0-alpha-1", "v1.0.0-beta-1", "v1.0.0-rc-1"},
+			tags:     []string{"v1.0.0-alpha1", "v1.0.0-beta1", "v1.0.0-rc1"},
 			expected: 3,
 		},
 	}
@@ -86,7 +86,7 @@ func TestGetLatestVersion(t *testing.T) {
 		},
 		{
 			name:     "pre-release versions are less than stable",
-			tags:     []string{"v1.0.0", "v1.0.0-alpha-1"},
+			tags:     []string{"v1.0.0", "v1.0.0-alpha1"},
 			expected: "1.0.0",
 		},
 	}
@@ -185,9 +185,9 @@ func TestIsPreRelease(t *testing.T) {
 		expected bool
 	}{
 		{"1.0.0", false},
-		{"1.0.0-alpha-1", true},
-		{"1.0.0-beta-2", true},
-		{"1.0.0-rc-1", true},
+		{"1.0.0-alpha1", true},
+		{"1.0.0-beta2", true},
+		{"1.0.0-rc1", true},
 		{"2.0.0", false},
 	}
 
@@ -211,10 +211,10 @@ func TestGetPreReleaseInfo(t *testing.T) {
 		expectedNum  int
 		isNil        bool
 	}{
-		{"1.0.0-alpha-1", PreReleaseAlpha, 1, false},
-		{"1.0.0-alpha-5", PreReleaseAlpha, 5, false},
-		{"1.0.0-beta-2", PreReleaseBeta, 2, false},
-		{"1.0.0-rc-3", PreReleaseRC, 3, false},
+		{"1.0.0-alpha1", PreReleaseAlpha, 1, false},
+		{"1.0.0-alpha5", PreReleaseAlpha, 5, false},
+		{"1.0.0-beta2", PreReleaseBeta, 2, false},
+		{"1.0.0-rc3", PreReleaseRC, 3, false},
 		{"1.0.0", "", 0, true},
 		{"1.0.0-invalid", "", 0, true},
 		{"1.0.0-alpha", "", 0, true},
@@ -252,9 +252,9 @@ func TestSetPreRelease(t *testing.T) {
 		num      int
 		expected string
 	}{
-		{PreReleaseAlpha, 1, "1.2.3-alpha-1"},
-		{PreReleaseBeta, 2, "1.2.3-beta-2"},
-		{PreReleaseRC, 3, "1.2.3-rc-3"},
+		{PreReleaseAlpha, 1, "1.2.3-alpha1"},
+		{PreReleaseBeta, 2, "1.2.3-beta2"},
+		{PreReleaseRC, 3, "1.2.3-rc3"},
 	}
 
 	for _, tt := range tests {
@@ -278,9 +278,9 @@ func TestBumpPreRelease(t *testing.T) {
 		expected string
 		hasError bool
 	}{
-		{"1.0.0-alpha-1", "1.0.0-alpha-2", false},
-		{"1.0.0-beta-5", "1.0.0-beta-6", false},
-		{"1.0.0-rc-1", "1.0.0-rc-2", false},
+		{"1.0.0-alpha1", "1.0.0-alpha2", false},
+		{"1.0.0-beta5", "1.0.0-beta6", false},
+		{"1.0.0-rc1", "1.0.0-rc2", false},
 		{"1.0.0", "", true},
 	}
 
@@ -312,9 +312,9 @@ func TestNextPreReleaseStage(t *testing.T) {
 		expected string
 		hasError bool
 	}{
-		{"1.0.0-alpha-3", "1.0.0-beta-1", false},
-		{"1.0.0-beta-2", "1.0.0-rc-1", false},
-		{"1.0.0-rc-1", "", true},
+		{"1.0.0-alpha3", "1.0.0-beta1", false},
+		{"1.0.0-beta2", "1.0.0-rc1", false},
+		{"1.0.0-rc1", "", true},
 		{"1.0.0", "", true},
 	}
 
@@ -346,9 +346,9 @@ func TestReleaseStable(t *testing.T) {
 		expected string
 		hasError bool
 	}{
-		{"1.0.0-alpha-1", "1.0.0", false},
-		{"1.0.0-beta-2", "1.0.0", false},
-		{"1.0.0-rc-3", "1.0.0", false},
+		{"1.0.0-alpha1", "1.0.0", false},
+		{"1.0.0-beta2", "1.0.0", false},
+		{"1.0.0-rc3", "1.0.0", false},
 		{"1.0.0", "", true},
 	}
 
@@ -377,13 +377,13 @@ func TestGetLatestPreReleases(t *testing.T) {
 
 	tags := []string{
 		"v1.0.0",
-		"v1.0.1-alpha-1",
-		"v1.0.1-alpha-2",
-		"v1.0.1-alpha-3",
-		"v1.0.1-beta-1",
-		"v1.0.1-beta-2",
-		"v1.0.1-rc-1",
-		"v1.0.2-alpha-1",
+		"v1.0.1-alpha1",
+		"v1.0.1-alpha2",
+		"v1.0.1-alpha3",
+		"v1.0.1-beta1",
+		"v1.0.1-beta2",
+		"v1.0.1-rc1",
+		"v1.0.2-alpha1",
 	}
 
 	versions, _ := vm.ParseTags(tags)
@@ -391,14 +391,14 @@ func TestGetLatestPreReleases(t *testing.T) {
 
 	result := vm.GetLatestPreReleases(versions, baseVersion)
 
-	if result.Alpha == nil || result.Alpha.String() != "1.0.1-alpha-3" {
-		t.Errorf("expected alpha 1.0.1-alpha-3, got %v", result.Alpha)
+	if result.Alpha == nil || result.Alpha.String() != "1.0.1-alpha3" {
+		t.Errorf("expected alpha 1.0.1-alpha3, got %v", result.Alpha)
 	}
-	if result.Beta == nil || result.Beta.String() != "1.0.1-beta-2" {
-		t.Errorf("expected beta 1.0.1-beta-2, got %v", result.Beta)
+	if result.Beta == nil || result.Beta.String() != "1.0.1-beta2" {
+		t.Errorf("expected beta 1.0.1-beta2, got %v", result.Beta)
 	}
-	if result.RC == nil || result.RC.String() != "1.0.1-rc-1" {
-		t.Errorf("expected rc 1.0.1-rc-1, got %v", result.RC)
+	if result.RC == nil || result.RC.String() != "1.0.1-rc1" {
+		t.Errorf("expected rc 1.0.1-rc1, got %v", result.RC)
 	}
 }
 
@@ -427,10 +427,10 @@ func TestFindNextPreReleaseNumber(t *testing.T) {
 
 	tags := []string{
 		"v1.0.0",
-		"v1.0.1-alpha-1",
-		"v1.0.1-alpha-2",
-		"v1.0.1-alpha-3",
-		"v1.0.1-beta-1",
+		"v1.0.1-alpha1",
+		"v1.0.1-alpha2",
+		"v1.0.1-alpha3",
+		"v1.0.1-beta1",
 	}
 
 	versions, _ := vm.ParseTags(tags)
@@ -465,12 +465,12 @@ func TestGetLatestStableVersion(t *testing.T) {
 	}{
 		{
 			name:     "mixed stable and pre-release",
-			tags:     []string{"v1.0.0", "v1.0.1-alpha-1", "v1.1.0", "v1.1.1-beta-1"},
+			tags:     []string{"v1.0.0", "v1.0.1-alpha1", "v1.1.0", "v1.1.1-beta1"},
 			expected: "1.1.0",
 		},
 		{
 			name:     "only pre-releases",
-			tags:     []string{"v1.0.0-alpha-1", "v1.0.0-beta-1"},
+			tags:     []string{"v1.0.0-alpha1", "v1.0.0-beta1"},
 			expected: "0.0.0",
 		},
 		{
@@ -496,10 +496,10 @@ func TestGetAllPreReleasesForBase(t *testing.T) {
 
 	tags := []string{
 		"v1.0.0",
-		"v1.0.1-alpha-1",
-		"v1.0.1-alpha-2",
-		"v1.0.1-beta-1",
-		"v1.0.2-alpha-1",
+		"v1.0.1-alpha1",
+		"v1.0.1-alpha2",
+		"v1.0.1-beta1",
+		"v1.0.2-alpha1",
 	}
 
 	versions, _ := vm.ParseTags(tags)
@@ -512,7 +512,7 @@ func TestGetAllPreReleasesForBase(t *testing.T) {
 	}
 
 	// Should be sorted
-	expected := []string{"1.0.1-alpha-1", "1.0.1-alpha-2", "1.0.1-beta-1"}
+	expected := []string{"1.0.1-alpha1", "1.0.1-alpha2", "1.0.1-beta1"}
 	for i, v := range result {
 		if v.String() != expected[i] {
 			t.Errorf("expected %s at index %d, got %s", expected[i], i, v.String())

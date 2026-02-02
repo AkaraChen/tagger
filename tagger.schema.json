@@ -9,11 +9,23 @@
       "type": "string",
       "description": "JSON Schema reference"
     },
-    "gitHostingProvider": {
-      "type": "string",
-      "description": "Git hosting provider type",
-      "enum": ["GitHub", "GitLab", "Gitea", "Other"],
-      "default": "GitHub"
+    "platform": {
+      "type": "object",
+      "description": "Git hosting platform configuration",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Platform type",
+          "enum": ["github", "gitlab", "gitea"]
+        },
+        "base": {
+          "type": "string",
+          "description": "Base URL for self-hosted instances (e.g., https://github.example.com)",
+          "format": "uri"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
     },
     "defaults": {
       "type": "object",
@@ -32,6 +44,11 @@
           "type": "boolean",
           "description": "Skip the confirmation prompt before creating a tag",
           "default": false
+        },
+        "openActionPage": {
+          "type": "boolean",
+          "description": "Whether to open CI page (Actions/Pipelines) after push",
+          "default": true
         }
       },
       "additionalProperties": false
@@ -40,57 +57,31 @@
       "type": "object",
       "description": "Version number configuration",
       "properties": {
-        "tagPrefix": {
+        "tagTemplate": {
           "type": "string",
-          "description": "Prefix for version tags (e.g., 'v' for v1.0.0, '' for 1.0.0)",
-          "default": "v",
-          "examples": ["v", ""]
+          "description": "Template for stable version tags. Placeholders: {major}, {minor}, {patch}",
+          "default": "v{major}.{minor}.{patch}",
+          "examples": ["v{major}.{minor}.{patch}", "{major}.{minor}.{patch}", "release-{major}.{minor}.{patch}"]
         },
-        "defaultPreReleaseType": {
+        "preReleaseTagTemplate": {
           "type": "string",
-          "description": "Default pre-release type when creating pre-release versions",
-          "enum": ["alpha", "beta", "rc"]
-        }
-      },
-      "additionalProperties": false
-    },
-    "github": {
-      "type": "object",
-      "description": "GitHub-specific configuration",
-      "properties": {
-        "openActionPage": {
-          "type": "boolean",
-          "description": "Whether to open GitHub Actions page after push (true) or repository homepage (false)",
-          "default": true
-        }
-      },
-      "additionalProperties": false
-    },
-    "gitlab": {
-      "type": "object",
-      "description": "GitLab-specific configuration",
-      "properties": {
-        "openPipelinePage": {
-          "type": "boolean",
-          "description": "Whether to open GitLab Pipelines page after push (true) or repository homepage (false)",
-          "default": true
-        }
-      },
-      "additionalProperties": false
-    },
-    "gitea": {
-      "type": "object",
-      "description": "Gitea-specific configuration",
-      "properties": {
-        "openActionsPage": {
-          "type": "boolean",
-          "description": "Whether to open Gitea Actions page after push (true) or repository homepage (false)",
-          "default": true
+          "description": "Template for pre-release version tags. Placeholders: {major}, {minor}, {patch}, {preReleaseType}, {preReleaseNum}",
+          "default": "v{major}.{minor}.{patch}-{preReleaseType}{preReleaseNum}",
+          "examples": ["v{major}.{minor}.{patch}-{preReleaseType}{preReleaseNum}", "v{major}.{minor}.{patch}-{preReleaseType}.{preReleaseNum}"]
+        },
+        "preReleaseTypes": {
+          "type": "array",
+          "description": "List of pre-release types in order of progression",
+          "items": {
+            "type": "string"
+          },
+          "default": ["alpha", "beta", "rc"],
+          "minItems": 1,
+          "examples": [["alpha", "beta", "rc"], ["dev", "snapshot", "rc"], ["canary", "beta", "rc"]]
         }
       },
       "additionalProperties": false
     }
   },
-  "required": ["gitHostingProvider"],
   "additionalProperties": false
 }

@@ -58,16 +58,20 @@ func RunTag(opts TagOptions) error {
 		return fmt.Errorf("failed to parse tags: %w", err)
 	}
 
-	// 获取 tag 前缀配置
-	tagPrefix := cfg.GetTagPrefix()
+	// 从配置获取版本相关设置
+	selectorConfig := version.SelectorConfig{
+		TagTemplate:           cfg.GetTagTemplate(),
+		PreReleaseTagTemplate: cfg.GetPreReleaseTagTemplate(),
+		PreReleaseTypes:       cfg.GetPreReleaseTypes(),
+	}
 
 	ctx := &tagContext{
 		versionMgr:     versionMgr,
-		selector:       version.NewSelectorWithPrefix(tagPrefix),
+		selector:       version.NewSelectorWithConfig(selectorConfig),
 		versions:       versions,
 		currentVersion: versionMgr.GetLatestVersion(versions),
 		opts:           opts,
-		tagPrefix:      tagPrefix,
+		cfg:            cfg,
 	}
 
 	ctx.displayVersionStatus()

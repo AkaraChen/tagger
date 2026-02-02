@@ -10,54 +10,51 @@ import (
 const ConfigFileName = "tagger.config.json"
 const SchemaURL = "https://raw.githubusercontent.com/AkaraChen/tagger/main/tagger.schema.json"
 
-// GitHostingProvider 表示 Git 托管平台类型
-type GitHostingProvider string
+// 默认值常量
+const (
+	DefaultTagTemplate           = "v{major}.{minor}.{patch}"
+	DefaultPreReleaseTagTemplate = "v{major}.{minor}.{patch}-{preReleaseType}{preReleaseNum}"
+)
+
+// DefaultPreReleaseTypes 默认预发布类型列表
+var DefaultPreReleaseTypes = []string{"alpha", "beta", "rc"}
+
+// PlatformType 平台类型
+type PlatformType string
 
 const (
-	GitHub GitHostingProvider = "GitHub"
-	GitLab GitHostingProvider = "GitLab"
-	Gitea  GitHostingProvider = "Gitea"
-	Other  GitHostingProvider = "Other"
+	PlatformGitHub PlatformType = "github"
+	PlatformGitLab PlatformType = "gitlab"
+	PlatformGitea  PlatformType = "gitea"
 )
+
+// PlatformConfig 平台配置
+type PlatformConfig struct {
+	Type PlatformType `json:"type"`
+	Base string       `json:"base,omitempty"`
+}
 
 // DefaultsConfig 默认行为配置
 type DefaultsConfig struct {
 	Push             *bool  `json:"push,omitempty"`
 	MessageTemplate  string `json:"messageTemplate,omitempty"`
 	SkipConfirmation bool   `json:"skipConfirmation,omitempty"`
+	OpenActionPage   *bool  `json:"openActionPage,omitempty"`
 }
 
 // VersioningConfig 版本号配置
 type VersioningConfig struct {
-	TagPrefix             string `json:"tagPrefix,omitempty"`
-	DefaultPreReleaseType string `json:"defaultPreReleaseType,omitempty"`
-}
-
-// GitHubConfig GitHub 平台的配置
-type GitHubConfig struct {
-	// 使用指针类型可以区分"未设置"和"false"
-	OpenActionPage *bool `json:"openActionPage,omitempty"`
-}
-
-// GitLabConfig GitLab 平台的配置
-type GitLabConfig struct {
-	OpenPipelinePage *bool `json:"openPipelinePage,omitempty"`
-}
-
-// GiteaConfig Gitea 平台的配置
-type GiteaConfig struct {
-	OpenActionsPage *bool `json:"openActionsPage,omitempty"`
+	TagTemplate           string   `json:"tagTemplate,omitempty"`
+	PreReleaseTagTemplate string   `json:"preReleaseTagTemplate,omitempty"`
+	PreReleaseTypes       []string `json:"preReleaseTypes,omitempty"`
 }
 
 // Config 工具的配置文件结构
 type Config struct {
-	Schema             string             `json:"$schema,omitempty"`
-	GitHostingProvider GitHostingProvider `json:"gitHostingProvider"`
-	Defaults           *DefaultsConfig    `json:"defaults,omitempty"`
-	Versioning         *VersioningConfig  `json:"versioning,omitempty"`
-	GitHub             *GitHubConfig      `json:"github,omitempty"`
-	GitLab             *GitLabConfig      `json:"gitlab,omitempty"`
-	Gitea              *GiteaConfig       `json:"gitea,omitempty"`
+	Schema     string            `json:"$schema,omitempty"`
+	Platform   *PlatformConfig   `json:"platform,omitempty"`
+	Defaults   *DefaultsConfig   `json:"defaults,omitempty"`
+	Versioning *VersioningConfig `json:"versioning,omitempty"`
 }
 
 // Load 从当前目录加载配置文件
@@ -84,73 +81,46 @@ func Load() (*Config, error) {
 	return &config, nil
 }
 
-// ShouldOpenActionPage 判断是否应该打开 Action 页面
-// 如果配置中没有指定，默认返回 true
-func (c *Config) ShouldOpenActionPage() bool {
-	if c == nil || c.GitHub == nil || c.GitHub.OpenActionPage == nil {
-		return true // 默认打开 Action 页面
+// GetPlatformType 获取平台类型
+func (c *Config) GetPlatformType() PlatformType {
+	if c == nil || c.Platform == nil {
+		return ""
 	}
-	return *c.GitHub.OpenActionPage
+	return c.Platform.Type
+}
+
+// GetPlatformBase 获取平台 base URL
+func (c *Config) GetPlatformBase() string {
+	if c == nil || c.Platform == nil {
+		return ""
+	}
+	return c.Platform.Base
 }
 
 // IsGitHub 判断配置中的托管平台是否为 GitHub
 func (c *Config) IsGitHub() bool {
-	if c == nil {
-		return false
-	}
-	return c.GitHostingProvider == GitHub
+	return c.GetPlatformType() == PlatformGitHub
 }
 
 // IsGitLab 判断配置中的托管平台是否为 GitLab
 func (c *Config) IsGitLab() bool {
-	if c == nil {
-		return false
-	}
-	return c.GitHostingProvider == GitLab
+	return c.GetPlatformType() == PlatformGitLab
 }
 
 // IsGitea 判断配置中的托管平台是否为 Gitea
 func (c *Config) IsGitea() bool {
-	if c == nil {
-		return false
-	}
-	return c.GitHostingProvider == Gitea
+	return c.GetPlatformType() == PlatformGitea
 }
 
-// ShouldOpenPipelinePage 判断是否应该打开 GitLab Pipeline 页面
-func (c *Config) ShouldOpenPipelinePage() bool {
-	if c == nil || c.GitLab == nil || c.GitLab.OpenPipelinePage == nil {
-		return true
+// ShouldOpenActionPage 判断是否应该打开 CI 页面
+func (c *Config) ShouldOpenActionPage() bool {
+	if c == nil || c.Defaults == nil || c.Defaults.OpenActionPage == nil {
+		return true // 默认打开
 	}
-	return *c.GitLab.OpenPipelinePage
-}
-
-// ShouldOpenGiteaActionsPage 判断是否应该打开 Gitea Actions 页面
-func (c *Config) ShouldOpenGiteaActionsPage() bool {
-	if c == nil || c.Gitea == nil || c.Gitea.OpenActionsPage == nil {
-		return true
-	}
-	return *c.Gitea.OpenActionsPage
-}
-
-// GetTagPrefix 获取 tag 前缀，默认返回 "v"
-func (c *Config) GetTagPrefix() string {
-	if c == nil || c.Versioning == nil || c.Versioning.TagPrefix == "" {
-		return "v"
-	}
-	return c.Versioning.TagPrefix
-}
-
-// GetDefaultPreReleaseType 获取默认预发布类型
-func (c *Config) GetDefaultPreReleaseType() string {
-	if c == nil || c.Versioning == nil {
-		return ""
-	}
-	return c.Versioning.DefaultPreReleaseType
+	return *c.Defaults.OpenActionPage
 }
 
 // GetDefaultPush 获取默认推送行为
-// 返回 nil 表示询问用户，true 表示自动推送，false 表示不推送
 func (c *Config) GetDefaultPush() *bool {
 	if c == nil || c.Defaults == nil {
 		return nil
@@ -174,6 +144,44 @@ func (c *Config) GetMessageTemplate() string {
 	return c.Defaults.MessageTemplate
 }
 
+// GetTagTemplate 获取稳定版本 tag 模板
+func (c *Config) GetTagTemplate() string {
+	if c == nil || c.Versioning == nil || c.Versioning.TagTemplate == "" {
+		return DefaultTagTemplate
+	}
+	return c.Versioning.TagTemplate
+}
+
+// GetPreReleaseTagTemplate 获取预发布版本 tag 模板
+func (c *Config) GetPreReleaseTagTemplate() string {
+	if c == nil || c.Versioning == nil || c.Versioning.PreReleaseTagTemplate == "" {
+		return DefaultPreReleaseTagTemplate
+	}
+	return c.Versioning.PreReleaseTagTemplate
+}
+
+// GetPreReleaseTypes 获取预发布类型列表
+func (c *Config) GetPreReleaseTypes() []string {
+	if c == nil || c.Versioning == nil || len(c.Versioning.PreReleaseTypes) == 0 {
+		return DefaultPreReleaseTypes
+	}
+	return c.Versioning.PreReleaseTypes
+}
+
+// GetCIPageSuffix 根据平台类型返回 CI 页面后缀
+func (c *Config) GetCIPageSuffix() string {
+	switch c.GetPlatformType() {
+	case PlatformGitHub:
+		return "/actions"
+	case PlatformGitLab:
+		return "/-/pipelines"
+	case PlatformGitea:
+		return "/actions"
+	default:
+		return ""
+	}
+}
+
 // CreateDefault 创建默认配置文件
 func CreateDefault() error {
 	// 检查文件是否已存在
@@ -185,9 +193,11 @@ func CreateDefault() error {
 	// 创建默认配置
 	openActionPage := true
 	config := Config{
-		Schema:             SchemaURL,
-		GitHostingProvider: GitHub,
-		GitHub: &GitHubConfig{
+		Schema: SchemaURL,
+		Platform: &PlatformConfig{
+			Type: PlatformGitHub,
+		},
+		Defaults: &DefaultsConfig{
 			OpenActionPage: &openActionPage,
 		},
 	}

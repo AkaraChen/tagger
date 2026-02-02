@@ -1,16 +1,17 @@
 {
   "$schema": "https://raw.githubusercontent.com/AkaraChen/tagger/main/tagger.schema.json",
-  "gitHostingProvider": "GitHub",
+  "platform": {
+    "type": "github"
+  },
   "defaults": {
     "push": true,
     "messageTemplate": "Release {version}",
-    "skipConfirmation": false
+    "skipConfirmation": false,
+    "openActionPage": true
   },
   "versioning": {
-    "tagPrefix": "v",
-    "defaultPreReleaseType": "alpha"
-  },
-  "github": {
-    "openActionPage": true
+    "tagTemplate": "v{major}.{minor}.{patch}",
+    "preReleaseTagTemplate": "v{major}.{minor}.{patch}-{preReleaseType}{preReleaseNum}",
+    "preReleaseTypes": ["alpha", "beta", "rc"]
   }
 }

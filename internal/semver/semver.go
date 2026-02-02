@@ -107,6 +107,25 @@ func (vm *VersionManager) FormatVersionWithPrefix(v *semver.Version, prefix stri
 	return fmt.Sprintf("%s%s", prefix, v.String())
 }
 
+// FormatWithTemplate 使用模板格式化稳定版本号
+// 支持占位符: {major}, {minor}, {patch}
+func (vm *VersionManager) FormatWithTemplate(v *semver.Version, template string) string {
+	result := template
+	result = strings.ReplaceAll(result, "{major}", strconv.FormatUint(v.Major(), 10))
+	result = strings.ReplaceAll(result, "{minor}", strconv.FormatUint(v.Minor(), 10))
+	result = strings.ReplaceAll(result, "{patch}", strconv.FormatUint(v.Patch(), 10))
+	return result
+}
+
+// FormatPreReleaseWithTemplate 使用模板格式化预发布版本号
+// 支持占位符: {major}, {minor}, {patch}, {preReleaseType}, {preReleaseNum}
+func (vm *VersionManager) FormatPreReleaseWithTemplate(v *semver.Version, template string, preType string, preNum int) string {
+	result := vm.FormatWithTemplate(v, template)
+	result = strings.ReplaceAll(result, "{preReleaseType}", preType)
+	result = strings.ReplaceAll(result, "{preReleaseNum}", strconv.Itoa(preNum))
+	return result
+}
+
 // CalculateNewVersion 根据更新类型计算新版本号
 func (vm *VersionManager) CalculateNewVersion(current *semver.Version, bumpType string) (*semver.Version, error) {
 	switch strings.ToLower(bumpType) {
@@ -127,15 +146,15 @@ func (vm *VersionManager) IsPreRelease(v *semver.Version) bool {
 }
 
 // GetPreReleaseInfo parses the pre-release suffix and returns type and number
-// Expected format: alpha-1, beta-2, rc-1
+// Expected format: alpha1, beta2, rc1 (type followed by number)
 func (vm *VersionManager) GetPreReleaseInfo(v *semver.Version) *PreReleaseInfo {
 	prerelease := v.Prerelease()
 	if prerelease == "" {
 		return nil
 	}
 
-	// Match patterns like "alpha-1", "beta-2", "rc-1"
-	re := regexp.MustCompile(`^(alpha|beta|rc)-(\d+)$`)
+	// Match patterns like "alpha1", "beta2", "rc1" (type followed by number, no separator)
+	re := regexp.MustCompile(`^([a-zA-Z]+)(\d+)$`)
 	matches := re.FindStringSubmatch(prerelease)
 	if matches == nil {
 		return nil
@@ -148,9 +167,32 @@ func (vm *VersionManager) GetPreReleaseInfo(v *semver.Version) *PreReleaseInfo {
 	}
 }
 
+// GetPreReleaseInfoWithTypes parses the pre-release suffix with custom valid types
+func (vm *VersionManager) GetPreReleaseInfoWithTypes(v *semver.Version, validTypes []string) *PreReleaseInfo {
+	info := vm.GetPreReleaseInfo(v)
+	if info == nil {
+		return nil
+	}
+
+	// Check if the type is in the valid types list
+	for _, t := range validTypes {
+		if string(info.Type) == t {
+			return info
+		}
+	}
+
+	return nil
+}
+
 // SetPreRelease creates a new version with the specified pre-release type and number
 func (vm *VersionManager) SetPreRelease(v *semver.Version, preType PreReleaseType, num int) (*semver.Version, error) {
-	versionStr := fmt.Sprintf("%d.%d.%d-%s-%d", v.Major(), v.Minor(), v.Patch(), preType, num)
+	versionStr := fmt.Sprintf("%d.%d.%d-%s%d", v.Major(), v.Minor(), v.Patch(), preType, num)
+	return semver.NewVersion(versionStr)
+}
+
+// SetPreReleaseString creates a new version with the specified pre-release type string and number
+func (vm *VersionManager) SetPreReleaseString(v *semver.Version, preType string, num int) (*semver.Version, error) {
+	versionStr := fmt.Sprintf("%d.%d.%d-%s%d", v.Major(), v.Minor(), v.Patch(), preType, num)
 	return semver.NewVersion(versionStr)
 }
 
@@ -184,6 +226,84 @@ func (vm *VersionManager) NextPreReleaseStage(v *semver.Version) (*semver.Versio
 	}
 
 	return vm.SetPreRelease(v, nextType, 1)
+}
+
+// NextPreReleaseStageWithTypes advances the pre-release stage based on custom types list
+func (vm *VersionManager) NextPreReleaseStageWithTypes(v *semver.Version, types []string) (*semver.Version, error) {
+	info := vm.GetPreReleaseInfo(v)
+	if info == nil {
+		return nil, fmt.Errorf("version %s is not a valid pre-release", v.String())
+	}
+
+	currentType := string(info.Type)
+	currentIndex := -1
+	for i, t := range types {
+		if t == currentType {
+			currentIndex = i
+			break
+		}
+	}
+
+	if currentIndex == -1 {
+		return nil, fmt.Errorf("unknown pre-release type: %s", currentType)
+	}
+
+	if currentIndex >= len(types)-1 {
+		return nil, fmt.Errorf("%s is the final pre-release stage, use ReleaseStable instead", currentType)
+	}
+
+	nextType := types[currentIndex+1]
+	return vm.SetPreReleaseString(v, nextType, 1)
+}
+
+// FindNextPreReleaseNumberForType finds the next available number for a pre-release type string
+func (vm *VersionManager) FindNextPreReleaseNumberForType(versions []*semver.Version, baseVersion *semver.Version, preType string) int {
+	maxNum := 0
+
+	for _, v := range versions {
+		if v.Major() != baseVersion.Major() || v.Minor() != baseVersion.Minor() || v.Patch() != baseVersion.Patch() {
+			continue
+		}
+
+		info := vm.GetPreReleaseInfo(v)
+		if info == nil || string(info.Type) != preType {
+			continue
+		}
+
+		if info.Number > maxNum {
+			maxNum = info.Number
+		}
+	}
+
+	return maxNum + 1
+}
+
+// GetLatestPreReleasesForTypes returns a map of latest versions for each pre-release type
+func (vm *VersionManager) GetLatestPreReleasesForTypes(versions []*semver.Version, baseVersion *semver.Version, types []string) map[string]*semver.Version {
+	result := make(map[string]*semver.Version)
+
+	for _, v := range versions {
+		if v.Major() != baseVersion.Major() || v.Minor() != baseVersion.Minor() || v.Patch() != baseVersion.Patch() {
+			continue
+		}
+
+		info := vm.GetPreReleaseInfo(v)
+		if info == nil {
+			continue
+		}
+
+		typeStr := string(info.Type)
+		for _, t := range types {
+			if t == typeStr {
+				if existing, ok := result[typeStr]; !ok || v.GreaterThan(existing) {
+					result[typeStr] = v
+				}
+				break
+			}
+		}
+	}
+
+	return result
 }
 
 // ReleaseStable removes the pre-release suffix to create a stable version

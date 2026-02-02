@@ -2,8 +2,6 @@ package ui
 
 import (
 	"testing"
-
-	"github.com/AkaraChen/tagger/internal/semver"
 )
 
 func TestBumpTypeOption(t *testing.T) {
@@ -26,19 +24,19 @@ func TestBumpTypeOption(t *testing.T) {
 
 func TestPreReleaseTypeOption(t *testing.T) {
 	opt := PreReleaseTypeOption{
-		Type:       semver.PreReleaseAlpha,
-		NewVersion: "v1.0.1-alpha-1",
-		LatestInfo: "v1.0.1-alpha-0",
+		Type:       "alpha",
+		NewVersion: "v1.0.1-alpha1",
+		LatestInfo: "v1.0.1-alpha0",
 	}
 
-	if opt.Type != semver.PreReleaseAlpha {
+	if opt.Type != "alpha" {
 		t.Errorf("expected 'alpha', got '%s'", opt.Type)
 	}
-	if opt.NewVersion != "v1.0.1-alpha-1" {
-		t.Errorf("expected 'v1.0.1-alpha-1', got '%s'", opt.NewVersion)
+	if opt.NewVersion != "v1.0.1-alpha1" {
+		t.Errorf("expected 'v1.0.1-alpha1', got '%s'", opt.NewVersion)
 	}
-	if opt.LatestInfo != "v1.0.1-alpha-0" {
-		t.Errorf("expected 'v1.0.1-alpha-0', got '%s'", opt.LatestInfo)
+	if opt.LatestInfo != "v1.0.1-alpha0" {
+		t.Errorf("expected 'v1.0.1-alpha0', got '%s'", opt.LatestInfo)
 	}
 }
 
@@ -64,15 +62,15 @@ func TestPreReleaseAction(t *testing.T) {
 func TestPreReleaseActionOption(t *testing.T) {
 	opt := PreReleaseActionOption{
 		Action:     PreReleaseActionBump,
-		NewVersion: "v1.0.1-alpha-2",
+		NewVersion: "v1.0.1-alpha2",
 		Desc:       "increment alpha number",
 	}
 
 	if opt.Action != PreReleaseActionBump {
 		t.Errorf("expected 'bump', got '%s'", opt.Action)
 	}
-	if opt.NewVersion != "v1.0.1-alpha-2" {
-		t.Errorf("expected 'v1.0.1-alpha-2', got '%s'", opt.NewVersion)
+	if opt.NewVersion != "v1.0.1-alpha2" {
+		t.Errorf("expected 'v1.0.1-alpha2', got '%s'", opt.NewVersion)
 	}
 	if opt.Desc != "increment alpha number" {
 		t.Errorf("expected 'increment alpha number', got '%s'", opt.Desc)
@@ -176,13 +174,13 @@ func TestInputMessageModel(t *testing.T) {
 
 func TestSelectPreReleaseTypeModel(t *testing.T) {
 	options := []PreReleaseTypeOption{
-		{Type: semver.PreReleaseAlpha, NewVersion: "v1.0.1-alpha-1"},
-		{Type: semver.PreReleaseBeta, NewVersion: "v1.0.1-beta-1"},
+		{Type: "alpha", NewVersion: "v1.0.1-alpha1"},
+		{Type: "beta", NewVersion: "v1.0.1-beta1"},
 	}
 
 	m := selectPreReleaseTypeModel{
 		options:   options,
-		choice:    semver.PreReleaseAlpha,
+		choice:    "alpha",
 		quitting:  false,
 		cancelled: false,
 	}
@@ -209,8 +207,7 @@ func TestSelectPreReleaseTypeModel(t *testing.T) {
 
 func TestSelectPreReleaseActionModel(t *testing.T) {
 	options := []PreReleaseActionOption{
-		{Action: PreReleaseActionBump, NewVersion: "v1.0.1-alpha-2"},
-		{Action: PreReleaseActionStable, NewVersion: "v1.0.1"},
+		{Action: PreReleaseActionBump, NewVersion: "v1.0.1-alpha2", Desc: "increment alpha number"},
 	}
 
 	m := selectPreReleaseActionModel{

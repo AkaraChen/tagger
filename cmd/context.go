@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/AkaraChen/tagger/internal/config"
 	"github.com/AkaraChen/tagger/internal/semver"
 	"github.com/AkaraChen/tagger/internal/ui"
 	"github.com/AkaraChen/tagger/internal/version"
@@ -16,36 +17,30 @@ type tagContext struct {
 	versions       []*sv.Version
 	currentVersion *sv.Version
 	opts           TagOptions
-	tagPrefix      string
+	cfg            *config.Config
 }
 
 func (ctx *tagContext) currentVersionStr() string {
-	return ctx.versionMgr.FormatVersionWithPrefix(ctx.currentVersion, ctx.tagPrefix)
+	return ctx.versionMgr.FormatWithTemplate(ctx.currentVersion, ctx.cfg.GetTagTemplate())
 }
 
 func (ctx *tagContext) displayVersionStatus() {
 	fmt.Println(ui.TitleStyle.Render(fmt.Sprintf("Current Version: %s", ctx.currentVersionStr())))
 
 	nextPatch := ctx.versionMgr.BumpPatch(ctx.currentVersion)
-	latestPreReleases := ctx.versionMgr.GetLatestPreReleases(ctx.versions, nextPatch)
+	preReleaseTypes := ctx.cfg.GetPreReleaseTypes()
+	latestPreReleases := ctx.versionMgr.GetLatestPreReleasesForTypes(ctx.versions, nextPatch, preReleaseTypes)
 
-	hasPreReleases := latestPreReleases.Alpha != nil || latestPreReleases.Beta != nil || latestPreReleases.RC != nil
-	if hasPreReleases {
+	if len(latestPreReleases) > 0 {
 		fmt.Println(ui.InfoStyle.Render("Latest pre-releases:"))
-		if latestPreReleases.Alpha != nil {
-			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  alpha: %s%s", ctx.tagPrefix, latestPreReleases.Alpha.String())))
-		} else {
-			fmt.Println(ui.HelpStyle.Render("  alpha: (none)"))
-		}
-		if latestPreReleases.Beta != nil {
-			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  beta:  %s%s", ctx.tagPrefix, latestPreReleases.Beta.String())))
-		} else {
-			fmt.Println(ui.HelpStyle.Render("  beta:  (none)"))
-		}
-		if latestPreReleases.RC != nil {
-			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  rc:    %s%s", ctx.tagPrefix, latestPreReleases.RC.String())))
-		} else {
-			fmt.Println(ui.HelpStyle.Render("  rc:    (none)"))
+		for _, preType := range preReleaseTypes {
+			if v, ok := latestPreReleases[preType]; ok {
+				info := ctx.versionMgr.GetPreReleaseInfo(v)
+				formatted := ctx.versionMgr.FormatPreReleaseWithTemplate(v, ctx.cfg.GetPreReleaseTagTemplate(), preType, info.Number)
+				fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  %s: %s", preType, formatted)))
+			} else {
+				fmt.Println(ui.HelpStyle.Render(fmt.Sprintf("  %s: (none)", preType)))
+			}
 		}
 		fmt.Println()
 	}
@@ -118,7 +113,7 @@ func (ctx *tagContext) handleStableVersion() (string, error) {
 	}
 
 	if !isPreRelease {
-		return ctx.versionMgr.FormatVersionWithPrefix(newVersion, ctx.tagPrefix), nil
+		return ctx.versionMgr.FormatWithTemplate(newVersion, ctx.cfg.GetTagTemplate()), nil
 	}
 
 	return ctx.selectPreReleaseType(newVersion)

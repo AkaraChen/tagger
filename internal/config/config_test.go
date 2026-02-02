@@ -6,50 +6,82 @@ import (
 	"testing"
 )
 
-func TestShouldOpenActionPage(t *testing.T) {
+func TestGetPlatformType(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
-		expected bool
+		expected PlatformType
 	}{
 		{
 			name:     "nil config",
 			config:   nil,
-			expected: true,
+			expected: "",
 		},
 		{
-			name:     "nil github config",
-			config:   &Config{GitHostingProvider: GitHub},
-			expected: true,
+			name:     "nil platform",
+			config:   &Config{},
+			expected: "",
 		},
 		{
-			name:     "nil openActionPage",
-			config:   &Config{GitHostingProvider: GitHub, GitHub: &GitHubConfig{}},
-			expected: true,
+			name:     "github platform",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitHub}},
+			expected: PlatformGitHub,
 		},
 		{
-			name: "openActionPage true",
-			config: &Config{
-				GitHostingProvider: GitHub,
-				GitHub:             &GitHubConfig{OpenActionPage: boolPtr(true)},
-			},
-			expected: true,
+			name:     "gitlab platform",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitLab}},
+			expected: PlatformGitLab,
 		},
 		{
-			name: "openActionPage false",
-			config: &Config{
-				GitHostingProvider: GitHub,
-				GitHub:             &GitHubConfig{OpenActionPage: boolPtr(false)},
-			},
-			expected: false,
+			name:     "gitea platform",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitea}},
+			expected: PlatformGitea,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.config.ShouldOpenActionPage()
+			result := tt.config.GetPlatformType()
 			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestGetPlatformBase(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected string
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: "",
+		},
+		{
+			name:     "nil platform",
+			config:   &Config{},
+			expected: "",
+		},
+		{
+			name:     "empty base",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitHub}},
+			expected: "",
+		},
+		{
+			name:     "custom base",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitHub, Base: "https://github.example.com"}},
+			expected: "https://github.example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.GetPlatformBase()
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
 		})
 	}
@@ -67,18 +99,13 @@ func TestIsGitHub(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "GitHub provider",
-			config:   &Config{GitHostingProvider: GitHub},
+			name:     "github platform",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitHub}},
 			expected: true,
 		},
 		{
-			name:     "Other provider",
-			config:   &Config{GitHostingProvider: Other},
-			expected: false,
-		},
-		{
-			name:     "empty provider",
-			config:   &Config{},
+			name:     "gitlab platform",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitLab}},
 			expected: false,
 		},
 	}
@@ -105,13 +132,13 @@ func TestIsGitLab(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "GitLab provider",
-			config:   &Config{GitHostingProvider: GitLab},
+			name:     "gitlab platform",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitLab}},
 			expected: true,
 		},
 		{
-			name:     "GitHub provider",
-			config:   &Config{GitHostingProvider: GitHub},
+			name:     "github platform",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitHub}},
 			expected: false,
 		},
 	}
@@ -138,13 +165,13 @@ func TestIsGitea(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "Gitea provider",
-			config:   &Config{GitHostingProvider: Gitea},
+			name:     "gitea platform",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitea}},
 			expected: true,
 		},
 		{
-			name:     "GitHub provider",
-			config:   &Config{GitHostingProvider: GitHub},
+			name:     "github platform",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitHub}},
 			expected: false,
 		},
 	}
@@ -159,7 +186,50 @@ func TestIsGitea(t *testing.T) {
 	}
 }
 
-func TestGetTagPrefix(t *testing.T) {
+func TestShouldOpenActionPage(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected bool
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: true,
+		},
+		{
+			name:     "nil defaults",
+			config:   &Config{},
+			expected: true,
+		},
+		{
+			name:     "nil openActionPage",
+			config:   &Config{Defaults: &DefaultsConfig{}},
+			expected: true,
+		},
+		{
+			name:     "openActionPage true",
+			config:   &Config{Defaults: &DefaultsConfig{OpenActionPage: boolPtr(true)}},
+			expected: true,
+		},
+		{
+			name:     "openActionPage false",
+			config:   &Config{Defaults: &DefaultsConfig{OpenActionPage: boolPtr(false)}},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.ShouldOpenActionPage()
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestGetTagTemplate(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
@@ -168,35 +238,113 @@ func TestGetTagPrefix(t *testing.T) {
 		{
 			name:     "nil config",
 			config:   nil,
-			expected: "v",
+			expected: DefaultTagTemplate,
 		},
 		{
 			name:     "nil versioning",
 			config:   &Config{},
-			expected: "v",
+			expected: DefaultTagTemplate,
 		},
 		{
-			name:     "empty prefix",
-			config:   &Config{Versioning: &VersioningConfig{TagPrefix: ""}},
-			expected: "v",
+			name:     "empty template",
+			config:   &Config{Versioning: &VersioningConfig{TagTemplate: ""}},
+			expected: DefaultTagTemplate,
 		},
 		{
-			name:     "custom prefix",
-			config:   &Config{Versioning: &VersioningConfig{TagPrefix: "release-"}},
-			expected: "release-",
-		},
-		{
-			name:     "no prefix",
-			config:   &Config{Versioning: &VersioningConfig{TagPrefix: " "}},
-			expected: " ",
+			name:     "custom template",
+			config:   &Config{Versioning: &VersioningConfig{TagTemplate: "release-{major}.{minor}.{patch}"}},
+			expected: "release-{major}.{minor}.{patch}",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.config.GetTagPrefix()
+			result := tt.config.GetTagTemplate()
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestGetPreReleaseTagTemplate(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected string
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: DefaultPreReleaseTagTemplate,
+		},
+		{
+			name:     "nil versioning",
+			config:   &Config{},
+			expected: DefaultPreReleaseTagTemplate,
+		},
+		{
+			name:     "empty template",
+			config:   &Config{Versioning: &VersioningConfig{PreReleaseTagTemplate: ""}},
+			expected: DefaultPreReleaseTagTemplate,
+		},
+		{
+			name:     "custom template",
+			config:   &Config{Versioning: &VersioningConfig{PreReleaseTagTemplate: "v{major}.{minor}.{patch}-{preReleaseType}.{preReleaseNum}"}},
+			expected: "v{major}.{minor}.{patch}-{preReleaseType}.{preReleaseNum}",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.GetPreReleaseTagTemplate()
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestGetPreReleaseTypes(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected []string
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: DefaultPreReleaseTypes,
+		},
+		{
+			name:     "nil versioning",
+			config:   &Config{},
+			expected: DefaultPreReleaseTypes,
+		},
+		{
+			name:     "empty types",
+			config:   &Config{Versioning: &VersioningConfig{PreReleaseTypes: []string{}}},
+			expected: DefaultPreReleaseTypes,
+		},
+		{
+			name:     "custom types",
+			config:   &Config{Versioning: &VersioningConfig{PreReleaseTypes: []string{"dev", "snapshot", "rc"}}},
+			expected: []string{"dev", "snapshot", "rc"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.GetPreReleaseTypes()
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+				return
+			}
+			for i, v := range result {
+				if v != tt.expected[i] {
+					t.Errorf("expected %v, got %v", tt.expected, result)
+					return
+				}
 			}
 		})
 	}
@@ -329,99 +477,39 @@ func TestGetMessageTemplate(t *testing.T) {
 	}
 }
 
-func TestShouldOpenPipelinePage(t *testing.T) {
+func TestGetCIPageSuffix(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
-		expected bool
+		expected string
 	}{
 		{
 			name:     "nil config",
 			config:   nil,
-			expected: true,
+			expected: "",
 		},
 		{
-			name:     "nil gitlab config",
-			config:   &Config{GitHostingProvider: GitLab},
-			expected: true,
+			name:     "github",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitHub}},
+			expected: "/actions",
 		},
 		{
-			name:     "nil openPipelinePage",
-			config:   &Config{GitHostingProvider: GitLab, GitLab: &GitLabConfig{}},
-			expected: true,
+			name:     "gitlab",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitLab}},
+			expected: "/-/pipelines",
 		},
 		{
-			name: "openPipelinePage true",
-			config: &Config{
-				GitHostingProvider: GitLab,
-				GitLab:             &GitLabConfig{OpenPipelinePage: boolPtr(true)},
-			},
-			expected: true,
-		},
-		{
-			name: "openPipelinePage false",
-			config: &Config{
-				GitHostingProvider: GitLab,
-				GitLab:             &GitLabConfig{OpenPipelinePage: boolPtr(false)},
-			},
-			expected: false,
+			name:     "gitea",
+			config:   &Config{Platform: &PlatformConfig{Type: PlatformGitea}},
+			expected: "/actions",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.config.ShouldOpenPipelinePage()
+			result := tt.config.GetCIPageSuffix()
 			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
-			}
-		})
-	}
-}
-
-func TestShouldOpenGiteaActionsPage(t *testing.T) {
-	tests := []struct {
-		name     string
-		config   *Config
-		expected bool
-	}{
-		{
-			name:     "nil config",
-			config:   nil,
-			expected: true,
-		},
-		{
-			name:     "nil gitea config",
-			config:   &Config{GitHostingProvider: Gitea},
-			expected: true,
-		},
-		{
-			name:     "nil openActionsPage",
-			config:   &Config{GitHostingProvider: Gitea, Gitea: &GiteaConfig{}},
-			expected: true,
-		},
-		{
-			name: "openActionsPage true",
-			config: &Config{
-				GitHostingProvider: Gitea,
-				Gitea:              &GiteaConfig{OpenActionsPage: boolPtr(true)},
-			},
-			expected: true,
-		},
-		{
-			name: "openActionsPage false",
-			config: &Config{
-				GitHostingProvider: Gitea,
-				Gitea:              &GiteaConfig{OpenActionsPage: boolPtr(false)},
-			},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.config.ShouldOpenGiteaActionsPage()
-			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
+				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
 		})
 	}
@@ -454,8 +542,10 @@ func TestLoad(t *testing.T) {
 	t.Run("valid config file", func(t *testing.T) {
 		configContent := `{
 			"$schema": "https://example.com/schema.json",
-			"gitHostingProvider": "GitHub",
-			"github": {
+			"platform": {
+				"type": "github"
+			},
+			"defaults": {
 				"openActionPage": true
 			}
 		}`
@@ -469,8 +559,8 @@ func TestLoad(t *testing.T) {
 		if config == nil {
 			t.Fatal("expected config, got nil")
 		}
-		if config.GitHostingProvider != GitHub {
-			t.Errorf("expected GitHub, got %s", config.GitHostingProvider)
+		if config.GetPlatformType() != PlatformGitHub {
+			t.Errorf("expected github, got %s", config.GetPlatformType())
 		}
 		if !config.ShouldOpenActionPage() {
 			t.Error("expected ShouldOpenActionPage to be true")
@@ -519,8 +609,8 @@ func TestCreateDefault(t *testing.T) {
 		if err != nil {
 			t.Errorf("unexpected error loading config: %v", err)
 		}
-		if config.GitHostingProvider != GitHub {
-			t.Errorf("expected GitHub, got %s", config.GitHostingProvider)
+		if config.GetPlatformType() != PlatformGitHub {
+			t.Errorf("expected github, got %s", config.GetPlatformType())
 		}
 
 		// Clean up

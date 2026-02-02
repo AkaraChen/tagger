@@ -32,36 +32,85 @@ type BumpOption struct {
 
 // PreReleaseTypeOption 表示一个预发布类型选项
 type PreReleaseTypeOption struct {
-	Type       semver.PreReleaseType
+	Type       string
 	NewVersion string
 	LatestInfo string
 }
 
+// SelectorConfig 选择器配置
+type SelectorConfig struct {
+	TagTemplate           string
+	PreReleaseTagTemplate string
+	PreReleaseTypes       []string
+}
+
+// DefaultSelectorConfig 默认选择器配置
+func DefaultSelectorConfig() SelectorConfig {
+	return SelectorConfig{
+		TagTemplate:           "v{major}.{minor}.{patch}",
+		PreReleaseTagTemplate: "v{major}.{minor}.{patch}-{preReleaseType}{preReleaseNum}",
+		PreReleaseTypes:       []string{"alpha", "beta", "rc"},
+	}
+}
+
 // Selector 封装版本选择的核心业务逻辑
 type Selector struct {
-	vm        *semver.VersionManager
-	tagPrefix string
+	vm     *semver.VersionManager
+	config SelectorConfig
 }
 
 // NewSelector 创建一个新的版本选择器
 func NewSelector() *Selector {
 	return &Selector{
-		vm:        semver.NewVersionManager(),
-		tagPrefix: "v",
+		vm:     semver.NewVersionManager(),
+		config: DefaultSelectorConfig(),
 	}
 }
 
-// NewSelectorWithPrefix 创建一个带自定义前缀的版本选择器
-func NewSelectorWithPrefix(prefix string) *Selector {
+// NewSelectorWithConfig 创建一个带自定义配置的版本选择器
+func NewSelectorWithConfig(cfg SelectorConfig) *Selector {
+	// 填充默认值
+	if cfg.TagTemplate == "" {
+		cfg.TagTemplate = "v{major}.{minor}.{patch}"
+	}
+	if cfg.PreReleaseTagTemplate == "" {
+		cfg.PreReleaseTagTemplate = "v{major}.{minor}.{patch}-{preReleaseType}{preReleaseNum}"
+	}
+	if len(cfg.PreReleaseTypes) == 0 {
+		cfg.PreReleaseTypes = []string{"alpha", "beta", "rc"}
+	}
+
 	return &Selector{
-		vm:        semver.NewVersionManager(),
-		tagPrefix: prefix,
+		vm:     semver.NewVersionManager(),
+		config: cfg,
 	}
 }
 
-// formatVersion 使用配置的前缀格式化版本号
+// formatVersion 使用模板格式化稳定版本号
 func (s *Selector) formatVersion(v *sv.Version) string {
-	return s.vm.FormatVersionWithPrefix(v, s.tagPrefix)
+	return s.vm.FormatWithTemplate(v, s.config.TagTemplate)
+}
+
+// formatPreRelease 使用模板格式化预发布版本号
+func (s *Selector) formatPreRelease(v *sv.Version, preType string, preNum int) string {
+	return s.vm.FormatPreReleaseWithTemplate(v, s.config.PreReleaseTagTemplate, preType, preNum)
+}
+
+// isLastPreReleaseType 检查是否是最后一个预发布类型
+func (s *Selector) isLastPreReleaseType(preType string) bool {
+	types := s.config.PreReleaseTypes
+	return len(types) > 0 && types[len(types)-1] == preType
+}
+
+// getNextPreReleaseType 获取下一个预发布类型
+func (s *Selector) getNextPreReleaseType(currentType string) (string, bool) {
+	types := s.config.PreReleaseTypes
+	for i, t := range types {
+		if t == currentType && i < len(types)-1 {
+			return types[i+1], true
+		}
+	}
+	return "", false
 }
 
 // GetPreReleaseOptions 获取对当前预发布版本可以执行的操作选项
@@ -69,42 +118,40 @@ func (s *Selector) GetPreReleaseOptions(
 	current *sv.Version,
 	versions []*sv.Version,
 ) ([]PreReleaseOption, error) {
-	info := s.vm.GetPreReleaseInfo(current)
+	info := s.vm.GetPreReleaseInfoWithTypes(current, s.config.PreReleaseTypes)
 	if info == nil {
 		return nil, fmt.Errorf("version %s is not a valid pre-release", current.String())
 	}
 
+	currentType := string(info.Type)
 	var options []PreReleaseOption
 
-	// 选项1: 增加预发布版本号 (alpha-1 -> alpha-2)
-	if bumpedVersion, err := s.vm.BumpPreRelease(current); err == nil {
-		options = append(options, PreReleaseOption{
-			Action:     PreReleaseActionBump,
-			NewVersion: s.formatVersion(bumpedVersion),
-			Desc:       fmt.Sprintf("increment %s number", info.Type),
-		})
-	}
+	// 选项1: 增加预发布版本号 (alpha1 -> alpha2)
+	newNum := info.Number + 1
+	bumpedVersion := s.formatPreRelease(current, currentType, newNum)
+	options = append(options, PreReleaseOption{
+		Action:     PreReleaseActionBump,
+		NewVersion: bumpedVersion,
+		Desc:       fmt.Sprintf("increment %s number", currentType),
+	})
 
-	// 选项2: 升级到下一个预发布阶段 (alpha -> beta -> rc)
-	if info.Type != semver.PreReleaseRC {
-		if advancedVersion, err := s.vm.NextPreReleaseStage(current); err == nil {
-			advancedInfo := s.vm.GetPreReleaseInfo(advancedVersion)
-			options = append(options, PreReleaseOption{
-				Action:     PreReleaseActionAdvance,
-				NewVersion: s.formatVersion(advancedVersion),
-				Desc:       fmt.Sprintf("%s → %s", info.Type, advancedInfo.Type),
-			})
-		}
+	// 选项2: 升级到下一个预发布阶段
+	if nextType, ok := s.getNextPreReleaseType(currentType); ok {
+		advancedVersion := s.formatPreRelease(current, nextType, 1)
+		options = append(options, PreReleaseOption{
+			Action:     PreReleaseActionAdvance,
+			NewVersion: advancedVersion,
+			Desc:       fmt.Sprintf("%s → %s", currentType, nextType),
+		})
 	}
 
 	// 选项3: 发布为稳定版本
-	if stableVersion, err := s.vm.ReleaseStable(current); err == nil {
-		options = append(options, PreReleaseOption{
-			Action:     PreReleaseActionStable,
-			NewVersion: s.formatVersion(stableVersion),
-			Desc:       "release as stable",
-		})
-	}
+	stableVersion := s.formatVersion(current)
+	options = append(options, PreReleaseOption{
+		Action:     PreReleaseActionStable,
+		NewVersion: stableVersion,
+		Desc:       "release as stable",
+	})
 
 	return options, nil
 }
@@ -140,37 +187,22 @@ func (s *Selector) GetPreReleaseTypeOptions(
 	baseVersion *sv.Version,
 	versions []*sv.Version,
 ) []PreReleaseTypeOption {
-	latestPreReleases := s.vm.GetLatestPreReleases(versions, baseVersion)
+	latestPreReleases := s.vm.GetLatestPreReleasesForTypes(versions, baseVersion, s.config.PreReleaseTypes)
 
 	var options []PreReleaseTypeOption
 
-	for _, preType := range []semver.PreReleaseType{
-		semver.PreReleaseAlpha,
-		semver.PreReleaseBeta,
-		semver.PreReleaseRC,
-	} {
-		num := s.vm.FindNextPreReleaseNumber(versions, baseVersion, preType)
-		version, _ := s.vm.SetPreRelease(baseVersion, preType, num)
+	for _, preType := range s.config.PreReleaseTypes {
+		num := s.vm.FindNextPreReleaseNumberForType(versions, baseVersion, preType)
+		newVersion := s.formatPreRelease(baseVersion, preType, num)
 
 		var latestInfo string
-		switch preType {
-		case semver.PreReleaseAlpha:
-			if latestPreReleases.Alpha != nil {
-				latestInfo = s.tagPrefix + latestPreReleases.Alpha.String()
-			}
-		case semver.PreReleaseBeta:
-			if latestPreReleases.Beta != nil {
-				latestInfo = s.tagPrefix + latestPreReleases.Beta.String()
-			}
-		case semver.PreReleaseRC:
-			if latestPreReleases.RC != nil {
-				latestInfo = s.tagPrefix + latestPreReleases.RC.String()
-			}
+		if latest, ok := latestPreReleases[preType]; ok {
+			latestInfo = s.formatPreRelease(latest, preType, s.vm.GetPreReleaseInfo(latest).Number)
 		}
 
 		options = append(options, PreReleaseTypeOption{
 			Type:       preType,
-			NewVersion: s.formatVersion(version),
+			NewVersion: newVersion,
 			LatestInfo: latestInfo,
 		})
 	}
@@ -185,16 +217,16 @@ func (s *Selector) CalculateNonInteractiveVersion(
 	preReleaseType string,
 	preReleaseNum int,
 ) (string, error) {
-	var preType semver.PreReleaseType
-	switch preReleaseType {
-	case "alpha":
-		preType = semver.PreReleaseAlpha
-	case "beta":
-		preType = semver.PreReleaseBeta
-	case "rc":
-		preType = semver.PreReleaseRC
-	default:
-		return "", fmt.Errorf("invalid pre-release type: %s (must be alpha, beta, or rc)", preReleaseType)
+	// 验证预发布类型
+	validType := false
+	for _, t := range s.config.PreReleaseTypes {
+		if t == preReleaseType {
+			validType = true
+			break
+		}
+	}
+	if !validType {
+		return "", fmt.Errorf("invalid pre-release type: %s (must be one of %v)", preReleaseType, s.config.PreReleaseTypes)
 	}
 
 	if preReleaseNum <= 0 {
@@ -206,15 +238,15 @@ func (s *Selector) CalculateNonInteractiveVersion(
 		baseVersion = s.vm.BumpPatch(current)
 	}
 
-	newVersion, err := s.vm.SetPreRelease(baseVersion, preType, preReleaseNum)
-	if err != nil {
-		return "", fmt.Errorf("failed to create pre-release version: %w", err)
-	}
-
-	return s.formatVersion(newVersion), nil
+	return s.formatPreRelease(baseVersion, preReleaseType, preReleaseNum), nil
 }
 
-// GetVersionManager 返回内部的 VersionManager（用于需要直接访问的复杂场景）
+// GetVersionManager 返回内部的 VersionManager
 func (s *Selector) GetVersionManager() *semver.VersionManager {
 	return s.vm
+}
+
+// GetConfig 返回选择器配置
+func (s *Selector) GetConfig() SelectorConfig {
+	return s.config
 }

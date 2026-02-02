@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/AkaraChen/tagger/internal/semver"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -209,13 +208,13 @@ func ConfirmPreRelease() (bool, error) {
 
 // PreReleaseTypeOption represents an option for pre-release type selection
 type PreReleaseTypeOption struct {
-	Type       semver.PreReleaseType
+	Type       string
 	NewVersion string
 	LatestInfo string
 }
 
-// SelectPreReleaseType allows user to select pre-release type (alpha/beta/rc)
-func SelectPreReleaseType(currentVersion string, options []PreReleaseTypeOption) (semver.PreReleaseType, error) {
+// SelectPreReleaseType allows user to select pre-release type
+func SelectPreReleaseType(currentVersion string, options []PreReleaseTypeOption) (string, error) {
 	items := make([]list.Item, len(options))
 	for i, opt := range options {
 		desc := fmt.Sprintf("%s → %s", currentVersion, opt.NewVersion)
@@ -469,7 +468,7 @@ func (m inputMessageModel) View() string {
 type selectPreReleaseTypeModel struct {
 	list      list.Model
 	options   []PreReleaseTypeOption
-	choice    semver.PreReleaseType
+	choice    string
 	quitting  bool
 	cancelled bool
 }
