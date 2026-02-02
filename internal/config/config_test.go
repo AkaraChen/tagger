@@ -93,6 +93,340 @@ func TestIsGitHub(t *testing.T) {
 	}
 }
 
+func TestIsGitLab(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected bool
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: false,
+		},
+		{
+			name:     "GitLab provider",
+			config:   &Config{GitHostingProvider: GitLab},
+			expected: true,
+		},
+		{
+			name:     "GitHub provider",
+			config:   &Config{GitHostingProvider: GitHub},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.IsGitLab()
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestIsGitea(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected bool
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: false,
+		},
+		{
+			name:     "Gitea provider",
+			config:   &Config{GitHostingProvider: Gitea},
+			expected: true,
+		},
+		{
+			name:     "GitHub provider",
+			config:   &Config{GitHostingProvider: GitHub},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.IsGitea()
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestGetTagPrefix(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected string
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: "v",
+		},
+		{
+			name:     "nil versioning",
+			config:   &Config{},
+			expected: "v",
+		},
+		{
+			name:     "empty prefix",
+			config:   &Config{Versioning: &VersioningConfig{TagPrefix: ""}},
+			expected: "v",
+		},
+		{
+			name:     "custom prefix",
+			config:   &Config{Versioning: &VersioningConfig{TagPrefix: "release-"}},
+			expected: "release-",
+		},
+		{
+			name:     "no prefix",
+			config:   &Config{Versioning: &VersioningConfig{TagPrefix: " "}},
+			expected: " ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.GetTagPrefix()
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestGetDefaultPush(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected *bool
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: nil,
+		},
+		{
+			name:     "nil defaults",
+			config:   &Config{},
+			expected: nil,
+		},
+		{
+			name:     "nil push",
+			config:   &Config{Defaults: &DefaultsConfig{}},
+			expected: nil,
+		},
+		{
+			name:     "push true",
+			config:   &Config{Defaults: &DefaultsConfig{Push: boolPtr(true)}},
+			expected: boolPtr(true),
+		},
+		{
+			name:     "push false",
+			config:   &Config{Defaults: &DefaultsConfig{Push: boolPtr(false)}},
+			expected: boolPtr(false),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.GetDefaultPush()
+			if tt.expected == nil {
+				if result != nil {
+					t.Errorf("expected nil, got %v", *result)
+				}
+			} else {
+				if result == nil {
+					t.Errorf("expected %v, got nil", *tt.expected)
+				} else if *result != *tt.expected {
+					t.Errorf("expected %v, got %v", *tt.expected, *result)
+				}
+			}
+		})
+	}
+}
+
+func TestShouldSkipConfirmation(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected bool
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: false,
+		},
+		{
+			name:     "nil defaults",
+			config:   &Config{},
+			expected: false,
+		},
+		{
+			name:     "skip false",
+			config:   &Config{Defaults: &DefaultsConfig{SkipConfirmation: false}},
+			expected: false,
+		},
+		{
+			name:     "skip true",
+			config:   &Config{Defaults: &DefaultsConfig{SkipConfirmation: true}},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.ShouldSkipConfirmation()
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestGetMessageTemplate(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected string
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: "",
+		},
+		{
+			name:     "nil defaults",
+			config:   &Config{},
+			expected: "",
+		},
+		{
+			name:     "empty template",
+			config:   &Config{Defaults: &DefaultsConfig{MessageTemplate: ""}},
+			expected: "",
+		},
+		{
+			name:     "custom template",
+			config:   &Config{Defaults: &DefaultsConfig{MessageTemplate: "Release {version}"}},
+			expected: "Release {version}",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.GetMessageTemplate()
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestShouldOpenPipelinePage(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected bool
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: true,
+		},
+		{
+			name:     "nil gitlab config",
+			config:   &Config{GitHostingProvider: GitLab},
+			expected: true,
+		},
+		{
+			name:     "nil openPipelinePage",
+			config:   &Config{GitHostingProvider: GitLab, GitLab: &GitLabConfig{}},
+			expected: true,
+		},
+		{
+			name: "openPipelinePage true",
+			config: &Config{
+				GitHostingProvider: GitLab,
+				GitLab:             &GitLabConfig{OpenPipelinePage: boolPtr(true)},
+			},
+			expected: true,
+		},
+		{
+			name: "openPipelinePage false",
+			config: &Config{
+				GitHostingProvider: GitLab,
+				GitLab:             &GitLabConfig{OpenPipelinePage: boolPtr(false)},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.ShouldOpenPipelinePage()
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestShouldOpenGiteaActionsPage(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		expected bool
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			expected: true,
+		},
+		{
+			name:     "nil gitea config",
+			config:   &Config{GitHostingProvider: Gitea},
+			expected: true,
+		},
+		{
+			name:     "nil openActionsPage",
+			config:   &Config{GitHostingProvider: Gitea, Gitea: &GiteaConfig{}},
+			expected: true,
+		},
+		{
+			name: "openActionsPage true",
+			config: &Config{
+				GitHostingProvider: Gitea,
+				Gitea:              &GiteaConfig{OpenActionsPage: boolPtr(true)},
+			},
+			expected: true,
+		},
+		{
+			name: "openActionsPage false",
+			config: &Config{
+				GitHostingProvider: Gitea,
+				Gitea:              &GiteaConfig{OpenActionsPage: boolPtr(false)},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.ShouldOpenGiteaActionsPage()
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
 func TestLoad(t *testing.T) {
 	// Save current directory
 	origDir, _ := os.Getwd()

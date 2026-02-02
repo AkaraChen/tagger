@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/AkaraChen/tagger/internal/browser"
 	"github.com/AkaraChen/tagger/internal/config"
@@ -57,12 +58,16 @@ func RunTag(opts TagOptions) error {
 		return fmt.Errorf("failed to parse tags: %w", err)
 	}
 
+	// 获取 tag 前缀配置
+	tagPrefix := cfg.GetTagPrefix()
+
 	ctx := &tagContext{
 		versionMgr:     versionMgr,
-		selector:       version.NewSelector(),
+		selector:       version.NewSelectorWithPrefix(tagPrefix),
 		versions:       versions,
 		currentVersion: versionMgr.GetLatestVersion(versions),
 		opts:           opts,
+		tagPrefix:      tagPrefix,
 	}
 
 	ctx.displayVersionStatus()
@@ -85,40 +90,51 @@ func RunTag(opts TagOptions) error {
 
 	tagMessage := opts.Message
 	if tagMessage == "" {
-		addMessage, err := ui.ConfirmAddMessage()
-		if err != nil {
-			if err.Error() == "cancelled" {
-				fmt.Println(ui.InfoStyle.Render("Operation cancelled"))
-				return nil
-			}
-			return fmt.Errorf("failed to confirm add message: %w", err)
-		}
-
-		if addMessage {
-			defaultText := fmt.Sprintf("Release %s: ", newVersionStr)
-			tagMessage, err = ui.InputTagMessage(defaultText)
+		// 检查是否有配置的消息模板
+		messageTemplate := cfg.GetMessageTemplate()
+		if messageTemplate != "" {
+			// 使用模板替换 {version} 占位符
+			tagMessage = strings.ReplaceAll(messageTemplate, "{version}", newVersionStr)
+		} else {
+			addMessage, err := ui.ConfirmAddMessage()
 			if err != nil {
 				if err.Error() == "cancelled" {
 					fmt.Println(ui.InfoStyle.Render("Operation cancelled"))
 					return nil
 				}
-				return fmt.Errorf("failed to input tag message: %w", err)
+				return fmt.Errorf("failed to confirm add message: %w", err)
+			}
+
+			if addMessage {
+				defaultText := fmt.Sprintf("Release %s: ", newVersionStr)
+				tagMessage, err = ui.InputTagMessage(defaultText)
+				if err != nil {
+					if err.Error() == "cancelled" {
+						fmt.Println(ui.InfoStyle.Render("Operation cancelled"))
+						return nil
+					}
+					return fmt.Errorf("failed to input tag message: %w", err)
+				}
 			}
 		}
 	}
 
-	confirmed, err := ui.ConfirmCreateTag(ctx.currentVersionStr(), newVersionStr, tagMessage)
-	if err != nil {
-		if err.Error() == "cancelled" {
+	// 检查是否应该跳过确认
+	confirmed := true
+	if !cfg.ShouldSkipConfirmation() {
+		confirmed, err = ui.ConfirmCreateTag(ctx.currentVersionStr(), newVersionStr, tagMessage)
+		if err != nil {
+			if err.Error() == "cancelled" {
+				fmt.Println(ui.InfoStyle.Render("Operation cancelled"))
+				return nil
+			}
+			return fmt.Errorf("failed to confirm create tag: %w", err)
+		}
+
+		if !confirmed {
 			fmt.Println(ui.InfoStyle.Render("Operation cancelled"))
 			return nil
 		}
-		return fmt.Errorf("failed to confirm create tag: %w", err)
-	}
-
-	if !confirmed {
-		fmt.Println(ui.InfoStyle.Render("Operation cancelled"))
-		return nil
 	}
 
 	exists, err := gitClient.TagExists(newVersionStr)
@@ -162,16 +178,25 @@ func RunTag(opts TagOptions) error {
 
 	if opts.AutoPush {
 		shouldPush = true
-	} else if !opts.NoPush {
-		confirmed, err := ui.ConfirmPush(newVersionStr)
-		if err != nil {
-			if err.Error() == "cancelled" {
-				fmt.Println(ui.InfoStyle.Render("Skipping push"))
-				return nil
+	} else if opts.NoPush {
+		shouldPush = false
+	} else {
+		// 检查配置中的默认推送行为
+		defaultPush := cfg.GetDefaultPush()
+		if defaultPush != nil {
+			shouldPush = *defaultPush
+		} else {
+			// 没有配置默认值，询问用户
+			confirmed, err := ui.ConfirmPush(newVersionStr)
+			if err != nil {
+				if err.Error() == "cancelled" {
+					fmt.Println(ui.InfoStyle.Render("Skipping push"))
+					return nil
+				}
+				return fmt.Errorf("failed to confirm push: %w", err)
 			}
-			return fmt.Errorf("failed to confirm push: %w", err)
+			shouldPush = confirmed
 		}
-		shouldPush = confirmed
 	}
 
 	if shouldPush {

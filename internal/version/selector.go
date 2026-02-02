@@ -39,14 +39,29 @@ type PreReleaseTypeOption struct {
 
 // Selector 封装版本选择的核心业务逻辑
 type Selector struct {
-	vm *semver.VersionManager
+	vm        *semver.VersionManager
+	tagPrefix string
 }
 
 // NewSelector 创建一个新的版本选择器
 func NewSelector() *Selector {
 	return &Selector{
-		vm: semver.NewVersionManager(),
+		vm:        semver.NewVersionManager(),
+		tagPrefix: "v",
 	}
+}
+
+// NewSelectorWithPrefix 创建一个带自定义前缀的版本选择器
+func NewSelectorWithPrefix(prefix string) *Selector {
+	return &Selector{
+		vm:        semver.NewVersionManager(),
+		tagPrefix: prefix,
+	}
+}
+
+// formatVersion 使用配置的前缀格式化版本号
+func (s *Selector) formatVersion(v *sv.Version) string {
+	return s.vm.FormatVersionWithPrefix(v, s.tagPrefix)
 }
 
 // GetPreReleaseOptions 获取对当前预发布版本可以执行的操作选项
@@ -65,7 +80,7 @@ func (s *Selector) GetPreReleaseOptions(
 	if bumpedVersion, err := s.vm.BumpPreRelease(current); err == nil {
 		options = append(options, PreReleaseOption{
 			Action:     PreReleaseActionBump,
-			NewVersion: s.vm.FormatVersion(bumpedVersion),
+			NewVersion: s.formatVersion(bumpedVersion),
 			Desc:       fmt.Sprintf("increment %s number", info.Type),
 		})
 	}
@@ -76,7 +91,7 @@ func (s *Selector) GetPreReleaseOptions(
 			advancedInfo := s.vm.GetPreReleaseInfo(advancedVersion)
 			options = append(options, PreReleaseOption{
 				Action:     PreReleaseActionAdvance,
-				NewVersion: s.vm.FormatVersion(advancedVersion),
+				NewVersion: s.formatVersion(advancedVersion),
 				Desc:       fmt.Sprintf("%s → %s", info.Type, advancedInfo.Type),
 			})
 		}
@@ -86,7 +101,7 @@ func (s *Selector) GetPreReleaseOptions(
 	if stableVersion, err := s.vm.ReleaseStable(current); err == nil {
 		options = append(options, PreReleaseOption{
 			Action:     PreReleaseActionStable,
-			NewVersion: s.vm.FormatVersion(stableVersion),
+			NewVersion: s.formatVersion(stableVersion),
 			Desc:       "release as stable",
 		})
 	}
@@ -99,17 +114,17 @@ func (s *Selector) GetStableBumpOptions(current *sv.Version) []BumpOption {
 	return []BumpOption{
 		{
 			Type:       "patch",
-			NewVersion: s.vm.FormatVersion(s.vm.BumpPatch(current)),
+			NewVersion: s.formatVersion(s.vm.BumpPatch(current)),
 			Desc:       "补丁更新",
 		},
 		{
 			Type:       "minor",
-			NewVersion: s.vm.FormatVersion(s.vm.BumpMinor(current)),
+			NewVersion: s.formatVersion(s.vm.BumpMinor(current)),
 			Desc:       "小版本更新",
 		},
 		{
 			Type:       "major",
-			NewVersion: s.vm.FormatVersion(s.vm.BumpMajor(current)),
+			NewVersion: s.formatVersion(s.vm.BumpMajor(current)),
 			Desc:       "大版本更新",
 		},
 	}
@@ -141,21 +156,21 @@ func (s *Selector) GetPreReleaseTypeOptions(
 		switch preType {
 		case semver.PreReleaseAlpha:
 			if latestPreReleases.Alpha != nil {
-				latestInfo = "v" + latestPreReleases.Alpha.String()
+				latestInfo = s.tagPrefix + latestPreReleases.Alpha.String()
 			}
 		case semver.PreReleaseBeta:
 			if latestPreReleases.Beta != nil {
-				latestInfo = "v" + latestPreReleases.Beta.String()
+				latestInfo = s.tagPrefix + latestPreReleases.Beta.String()
 			}
 		case semver.PreReleaseRC:
 			if latestPreReleases.RC != nil {
-				latestInfo = "v" + latestPreReleases.RC.String()
+				latestInfo = s.tagPrefix + latestPreReleases.RC.String()
 			}
 		}
 
 		options = append(options, PreReleaseTypeOption{
 			Type:       preType,
-			NewVersion: s.vm.FormatVersion(version),
+			NewVersion: s.formatVersion(version),
 			LatestInfo: latestInfo,
 		})
 	}
@@ -196,7 +211,7 @@ func (s *Selector) CalculateNonInteractiveVersion(
 		return "", fmt.Errorf("failed to create pre-release version: %w", err)
 	}
 
-	return s.vm.FormatVersion(newVersion), nil
+	return s.formatVersion(newVersion), nil
 }
 
 // GetVersionManager 返回内部的 VersionManager（用于需要直接访问的复杂场景）

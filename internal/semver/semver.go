@@ -102,6 +102,11 @@ func (vm *VersionManager) FormatVersion(v *semver.Version) string {
 	return fmt.Sprintf("v%s", v.String())
 }
 
+// FormatVersionWithPrefix 使用自定义前缀格式化版本号
+func (vm *VersionManager) FormatVersionWithPrefix(v *semver.Version, prefix string) string {
+	return fmt.Sprintf("%s%s", prefix, v.String())
+}
+
 // CalculateNewVersion 根据更新类型计算新版本号
 func (vm *VersionManager) CalculateNewVersion(current *semver.Version, bumpType string) (*semver.Version, error) {
 	switch strings.ToLower(bumpType) {

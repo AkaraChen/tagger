@@ -12,8 +12,47 @@
     "gitHostingProvider": {
       "type": "string",
       "description": "Git hosting provider type",
-      "enum": ["GitHub", "Other"],
+      "enum": ["GitHub", "GitLab", "Gitea", "Other"],
       "default": "GitHub"
+    },
+    "defaults": {
+      "type": "object",
+      "description": "Default behavior configuration",
+      "properties": {
+        "push": {
+          "type": "boolean",
+          "description": "Default push behavior: true = auto push, false = no push, omit = ask user"
+        },
+        "messageTemplate": {
+          "type": "string",
+          "description": "Default tag message template. Use {version} as placeholder for version string",
+          "examples": ["Release {version}", "Version {version}"]
+        },
+        "skipConfirmation": {
+          "type": "boolean",
+          "description": "Skip the confirmation prompt before creating a tag",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "versioning": {
+      "type": "object",
+      "description": "Version number configuration",
+      "properties": {
+        "tagPrefix": {
+          "type": "string",
+          "description": "Prefix for version tags (e.g., 'v' for v1.0.0, '' for 1.0.0)",
+          "default": "v",
+          "examples": ["v", ""]
+        },
+        "defaultPreReleaseType": {
+          "type": "string",
+          "description": "Default pre-release type when creating pre-release versions",
+          "enum": ["alpha", "beta", "rc"]
+        }
+      },
+      "additionalProperties": false
     },
     "github": {
       "type": "object",
@@ -22,6 +61,30 @@
         "openActionPage": {
           "type": "boolean",
           "description": "Whether to open GitHub Actions page after push (true) or repository homepage (false)",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "gitlab": {
+      "type": "object",
+      "description": "GitLab-specific configuration",
+      "properties": {
+        "openPipelinePage": {
+          "type": "boolean",
+          "description": "Whether to open GitLab Pipelines page after push (true) or repository homepage (false)",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "gitea": {
+      "type": "object",
+      "description": "Gitea-specific configuration",
+      "properties": {
+        "openActionsPage": {
+          "type": "boolean",
+          "description": "Whether to open Gitea Actions page after push (true) or repository homepage (false)",
           "default": true
         }
       },

@@ -16,10 +16,11 @@ type tagContext struct {
 	versions       []*sv.Version
 	currentVersion *sv.Version
 	opts           TagOptions
+	tagPrefix      string
 }
 
 func (ctx *tagContext) currentVersionStr() string {
-	return ctx.versionMgr.FormatVersion(ctx.currentVersion)
+	return ctx.versionMgr.FormatVersionWithPrefix(ctx.currentVersion, ctx.tagPrefix)
 }
 
 func (ctx *tagContext) displayVersionStatus() {
@@ -32,17 +33,17 @@ func (ctx *tagContext) displayVersionStatus() {
 	if hasPreReleases {
 		fmt.Println(ui.InfoStyle.Render("Latest pre-releases:"))
 		if latestPreReleases.Alpha != nil {
-			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  alpha: v%s", latestPreReleases.Alpha.String())))
+			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  alpha: %s%s", ctx.tagPrefix, latestPreReleases.Alpha.String())))
 		} else {
 			fmt.Println(ui.HelpStyle.Render("  alpha: (none)"))
 		}
 		if latestPreReleases.Beta != nil {
-			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  beta:  v%s", latestPreReleases.Beta.String())))
+			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  beta:  %s%s", ctx.tagPrefix, latestPreReleases.Beta.String())))
 		} else {
 			fmt.Println(ui.HelpStyle.Render("  beta:  (none)"))
 		}
 		if latestPreReleases.RC != nil {
-			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  rc:    v%s", latestPreReleases.RC.String())))
+			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  rc:    %s%s", ctx.tagPrefix, latestPreReleases.RC.String())))
 		} else {
 			fmt.Println(ui.HelpStyle.Render("  rc:    (none)"))
 		}
@@ -117,7 +118,7 @@ func (ctx *tagContext) handleStableVersion() (string, error) {
 	}
 
 	if !isPreRelease {
-		return ctx.versionMgr.FormatVersion(newVersion), nil
+		return ctx.versionMgr.FormatVersionWithPrefix(newVersion, ctx.tagPrefix), nil
 	}
 
 	return ctx.selectPreReleaseType(newVersion)

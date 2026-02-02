@@ -38,6 +38,27 @@ func IsGitHub(rawURL string) bool {
 	return parsedURL.Hostname() == "github.com"
 }
 
+// IsGitLab 判断仓库 URL 是否是 GitLab
+func IsGitLab(rawURL string) bool {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	hostname := parsedURL.Hostname()
+	return hostname == "gitlab.com" || hostname == "gitlab.cn"
+}
+
+// IsGitea 判断仓库 URL 是否是 Gitea (常见的自托管实例)
+func IsGitea(rawURL string) bool {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	hostname := parsedURL.Hostname()
+	// Gitea 常见的公共实例
+	return hostname == "gitea.com" || hostname == "codeberg.org"
+}
+
 // OpenRepository 处理打开仓库的逻辑
 func OpenRepository(cfg *config.Config, gitClient *git.GitClient) error {
 	repoURL, err := gitClient.GetRemoteURL()
@@ -46,6 +67,8 @@ func OpenRepository(cfg *config.Config, gitClient *git.GitClient) error {
 	}
 
 	isGitHubRepo := IsGitHub(repoURL)
+	isGitLabRepo := IsGitLab(repoURL)
+	isGiteaRepo := IsGitea(repoURL)
 
 	var shouldOpenRepo bool
 	var targetURL string
@@ -54,7 +77,8 @@ func OpenRepository(cfg *config.Config, gitClient *git.GitClient) error {
 		providerName := string(cfg.GitHostingProvider)
 		fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("ℹ Detected Git Hosting Provider: %s", providerName)))
 
-		if cfg.IsGitHub() {
+		switch {
+		case cfg.IsGitHub():
 			if !isGitHubRepo {
 				fmt.Println(ui.InfoStyle.Render("⚠ Warning: Config specifies GitHub, but repository URL is not github.com"))
 			}
@@ -68,7 +92,38 @@ func OpenRepository(cfg *config.Config, gitClient *git.GitClient) error {
 			}
 
 			shouldOpenRepo = true
-		} else {
+
+		case cfg.IsGitLab():
+			if !isGitLabRepo {
+				fmt.Println(ui.InfoStyle.Render("⚠ Warning: Config specifies GitLab, but repository URL is not gitlab.com"))
+			}
+
+			targetURL = repoURL
+			if cfg.ShouldOpenPipelinePage() {
+				targetURL = repoURL + "/-/pipelines"
+				fmt.Println(ui.InfoStyle.Render("ℹ Opening GitLab Pipelines page (configured in tagger.config.json)"))
+			} else {
+				fmt.Println(ui.InfoStyle.Render("ℹ Opening repository homepage (configured in tagger.config.json)"))
+			}
+
+			shouldOpenRepo = true
+
+		case cfg.IsGitea():
+			if !isGiteaRepo {
+				fmt.Println(ui.InfoStyle.Render("⚠ Warning: Config specifies Gitea, but repository URL may not be a Gitea instance"))
+			}
+
+			targetURL = repoURL
+			if cfg.ShouldOpenGiteaActionsPage() {
+				targetURL = repoURL + "/actions"
+				fmt.Println(ui.InfoStyle.Render("ℹ Opening Gitea Actions page (configured in tagger.config.json)"))
+			} else {
+				fmt.Println(ui.InfoStyle.Render("ℹ Opening repository homepage (configured in tagger.config.json)"))
+			}
+
+			shouldOpenRepo = true
+
+		default:
 			confirmed, err := ui.ConfirmOpenRepo()
 			if err != nil {
 				if err.Error() == "cancelled" {
@@ -93,6 +148,10 @@ func OpenRepository(cfg *config.Config, gitClient *git.GitClient) error {
 		targetURL = repoURL
 		if isGitHubRepo {
 			targetURL = repoURL + "/actions"
+		} else if isGitLabRepo {
+			targetURL = repoURL + "/-/pipelines"
+		} else if isGiteaRepo {
+			targetURL = repoURL + "/actions"
 		}
 	}
 
@@ -104,9 +163,14 @@ func OpenRepository(cfg *config.Config, gitClient *git.GitClient) error {
 			return fmt.Errorf("failed to open browser: %w", err)
 		}
 
-		if isGitHubRepo && targetURL == repoURL+"/actions" {
+		switch {
+		case isGitHubRepo && targetURL == repoURL+"/actions":
 			fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening GitHub Actions: %s", targetURL)))
-		} else {
+		case isGitLabRepo && targetURL == repoURL+"/-/pipelines":
+			fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening GitLab Pipelines: %s", targetURL)))
+		case isGiteaRepo && targetURL == repoURL+"/actions":
+			fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening Gitea Actions: %s", targetURL)))
+		default:
 			fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening %s in browser...", targetURL)))
 		}
 	}
