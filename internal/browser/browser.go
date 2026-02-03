@@ -39,7 +39,6 @@ func OpenRepository(cfg *config.Config, gitClient *git.GitClient) error {
 	// 检测平台类型
 	platformType := cfg.GetPlatformType(repoURL)
 
-	var shouldOpenRepo bool
 	var targetURL string
 
 	// 检查配置中是否应该打开浏览器
@@ -60,23 +59,12 @@ func OpenRepository(cfg *config.Config, gitClient *git.GitClient) error {
 		} else {
 			fmt.Println(ui.InfoStyle.Render("ℹ Opening repository homepage (configured in tagger.config.json)"))
 		}
-
-		shouldOpenRepo = true
 	} else {
-		// 未知平台，询问用户
-		confirmed, err := ui.ConfirmOpenRepo()
-		if err != nil {
-			if err.Error() == "cancelled" {
-				return fmt.Errorf("cancelled")
-			}
-			return fmt.Errorf("failed to confirm open repo: %w", err)
-		}
-
-		shouldOpenRepo = confirmed
+		// 未知平台，直接打开原链接
 		targetURL = repoURL
 	}
 
-	if shouldOpenRepo {
+	if true {
 		err = Open(targetURL)
 		if err != nil {
 			fmt.Println(ui.ErrorStyle.Render(fmt.Sprintf("✗ Failed to open browser: %v", err)))
