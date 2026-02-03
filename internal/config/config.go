@@ -5,30 +5,40 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 )
 
 const ConfigFileName = "tagger.config.json"
 const SchemaURL = "https://raw.githubusercontent.com/AkaraChen/tagger/main/tagger.schema.json"
 
-// GitHostingProvider 表示 Git 托管平台类型
-type GitHostingProvider string
+// PlatformType 表示 Git 托管平台类型
+type PlatformType string
 
 const (
-	GitHub GitHostingProvider = "GitHub"
-	Other  GitHostingProvider = "Other"
+	PlatformGitHub    PlatformType = "github"
+	PlatformGitLab    PlatformType = "gitlab"
+	PlatformBitbucket PlatformType = "bitbucket"
+	PlatformGitea     PlatformType = "gitea"
 )
 
-// GitHubConfig GitHub 平台的配置
-type GitHubConfig struct {
-	// 使用指针类型可以区分"未设置"和"false"
-	OpenActionPage *bool `json:"openActionPage,omitempty"`
+// PlatformConfig 平台配置
+type PlatformConfig struct {
+	Type PlatformType `json:"type"`
+	Base string       `json:"base,omitempty"`
+}
+
+// DefaultsConfig 默认行为配置
+type DefaultsConfig struct {
+	OpenBrowser *bool `json:"openBrowser,omitempty"`
+	AutoPush    *bool `json:"autoPush,omitempty"`
 }
 
 // Config 工具的配置文件结构
 type Config struct {
-	Schema             string             `json:"$schema,omitempty"`
-	GitHostingProvider GitHostingProvider `json:"gitHostingProvider"`
-	GitHub             *GitHubConfig      `json:"github,omitempty"`
+	Schema   string          `json:"$schema,omitempty"`
+	Platform *PlatformConfig `json:"platform,omitempty"`
+	Defaults *DefaultsConfig `json:"defaults,omitempty"`
 }
 
 // Load 从当前目录加载配置文件
@@ -55,21 +65,135 @@ func Load() (*Config, error) {
 	return &config, nil
 }
 
-// ShouldOpenActionPage 判断是否应该打开 Action 页面
+// ShouldOpenBrowser 判断是否应该在推送后打开浏览器
 // 如果配置中没有指定，默认返回 true
-func (c *Config) ShouldOpenActionPage() bool {
-	if c == nil || c.GitHub == nil || c.GitHub.OpenActionPage == nil {
-		return true // 默认打开 Action 页面
+func (c *Config) ShouldOpenBrowser() bool {
+	if c == nil || c.Defaults == nil || c.Defaults.OpenBrowser == nil {
+		return true // 默认打开浏览器
 	}
-	return *c.GitHub.OpenActionPage
+	return *c.Defaults.OpenBrowser
 }
 
-// IsGitHub 判断配置中的托管平台是否为 GitHub
-func (c *Config) IsGitHub() bool {
-	if c == nil {
-		return false
+// ShouldAutoPush 判断是否应该在创建 tag 后自动推送
+// 如果配置中没有指定，默认返回 false（需要用户确认）
+func (c *Config) ShouldAutoPush() bool {
+	if c == nil || c.Defaults == nil || c.Defaults.AutoPush == nil {
+		return false // 默认不自动推送
 	}
-	return c.GitHostingProvider == GitHub
+	return *c.Defaults.AutoPush
+}
+
+// GetPlatformType 获取平台类型
+// 如果配置了 platform.type，直接返回
+// 如果没有配置，尝试从 origin URL 解析
+// 如果都无法确定，返回空字符串
+func (c *Config) GetPlatformType(originURL string) PlatformType {
+	if c != nil && c.Platform != nil && c.Platform.Type != "" {
+		return c.Platform.Type
+	}
+	return DetectPlatformFromURL(originURL)
+}
+
+// GetPlatformBase 获取平台基础 URL
+// 如果配置了 platform.base，直接返回
+// 如果没有配置，根据平台类型返回默认的 base URL
+func (c *Config) GetPlatformBase(platformType PlatformType) string {
+	if c != nil && c.Platform != nil && c.Platform.Base != "" {
+		return c.Platform.Base
+	}
+	return GetDefaultBaseURL(platformType)
+}
+
+// DetectPlatformFromURL 从 Git URL 中检测平台类型
+func DetectPlatformFromURL(rawURL string) PlatformType {
+	// 转换 SSH URL 为 HTTPS URL 格式以便解析
+	url := rawURL
+	if strings.HasPrefix(url, "git@") {
+		url = strings.TrimPrefix(url, "git@")
+		url = strings.Replace(url, ":", "/", 1)
+		url = "https://" + url
+	}
+
+	// 移除 .git 后缀
+	url = strings.TrimSuffix(url, ".git")
+
+	// 解析 host
+	host := ""
+	if strings.HasPrefix(url, "https://") {
+		parts := strings.SplitN(url[8:], "/", 2)
+		if len(parts) > 0 {
+			host = parts[0]
+		}
+	}
+
+	switch host {
+	case "github.com":
+		return PlatformGitHub
+	case "gitlab.com":
+		return PlatformGitLab
+	case "bitbucket.org":
+		return PlatformBitbucket
+	}
+
+	// 检测 Gitea（通常有特定的路径模式或自定义域名）
+	// Gitea 通常部署在自定义域名上，这里通过一些启发式规则检测
+	if isGiteaHost(host) {
+		return PlatformGitea
+	}
+
+	return ""
+}
+
+// isGiteaHost 通过启发式规则检测是否是 Gitea 主机
+func isGiteaHost(host string) bool {
+	// 常见的 Gitea 路径特征
+	giteaPatterns := []string{
+		`gitea`,
+		`git\.`,
+		`code\.`,
+		`src\.`,
+		`repo\.`,
+	}
+
+	hostLower := strings.ToLower(host)
+	for _, pattern := range giteaPatterns {
+		matched, _ := regexp.MatchString(pattern, hostLower)
+		if matched {
+			return true
+		}
+	}
+
+	return false
+}
+
+// GetDefaultBaseURL 获取平台的默认基础 URL
+func GetDefaultBaseURL(platformType PlatformType) string {
+	switch platformType {
+	case PlatformGitHub:
+		return "https://github.com"
+	case PlatformGitLab:
+		return "https://gitlab.com"
+	case PlatformBitbucket:
+		return "https://bitbucket.org"
+	default:
+		return ""
+	}
+}
+
+// GetActionsPath 获取平台的 actions/pipelines 路径
+func GetActionsPath(platformType PlatformType) string {
+	switch platformType {
+	case PlatformGitHub:
+		return "/actions"
+	case PlatformGitLab:
+		return "/-/pipelines"
+	case PlatformBitbucket:
+		return "/pipelines"
+	case PlatformGitea:
+		return "/actions"
+	default:
+		return ""
+	}
 }
 
 // CreateDefault 创建默认配置文件
@@ -81,12 +205,13 @@ func CreateDefault() error {
 	}
 
 	// 创建默认配置
-	openActionPage := true
+	openBrowser := true
+	autoPush := false
 	config := Config{
-		Schema:             SchemaURL,
-		GitHostingProvider: GitHub,
-		GitHub: &GitHubConfig{
-			OpenActionPage: &openActionPage,
+		Schema: SchemaURL,
+		Defaults: &DefaultsConfig{
+			OpenBrowser: &openBrowser,
+			AutoPush:    &autoPush,
 		},
 	}
 

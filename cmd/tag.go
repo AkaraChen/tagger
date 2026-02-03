@@ -31,6 +31,13 @@ func RunTag(opts TagOptions) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// 应用配置中的默认值
+	if !opts.AutoPush && !opts.NoPush && cfg != nil {
+		if cfg.ShouldAutoPush() {
+			opts.AutoPush = true
+		}
+	}
+
 	isRepo, err := gitClient.IsGitRepository()
 	if err != nil {
 		return fmt.Errorf("failed to check git repository: %w", err)

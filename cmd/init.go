@@ -24,8 +24,10 @@ var initCmd = &cobra.Command{
 		fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  Schema: %s", config.SchemaURL)))
 		fmt.Println()
 		fmt.Println(ui.HelpStyle.Render("You can now customize your configuration:"))
-		fmt.Println(ui.HelpStyle.Render("  - gitHostingProvider: GitHub or Other"))
-		fmt.Println(ui.HelpStyle.Render("  - github.openActionPage: true (Actions page) or false (homepage)"))
+		fmt.Println(ui.HelpStyle.Render("  - platform.type: github, gitlab, bitbucket, or gitea"))
+		fmt.Println(ui.HelpStyle.Render("  - platform.base: Custom base URL for self-hosted instances"))
+		fmt.Println(ui.HelpStyle.Render("  - defaults.openBrowser: true to auto-open browser after push"))
+		fmt.Println(ui.HelpStyle.Render("  - defaults.autoPush: true to auto-push tags without prompting"))
 
 		return nil
 	},

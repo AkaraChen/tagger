@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/AkaraChen/tagger/main/tagger.schema.json",
-  "gitHostingProvider": "GitHub",
-  "github": {
-    "openActionPage": true
+  "defaults": {
+    "openBrowser": true,
+    "autoPush": false
   }
 }

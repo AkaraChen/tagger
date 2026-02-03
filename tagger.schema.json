@@ -9,25 +9,41 @@
       "type": "string",
       "description": "JSON Schema reference"
     },
-    "gitHostingProvider": {
-      "type": "string",
-      "description": "Git hosting provider type",
-      "enum": ["GitHub", "Other"],
-      "default": "GitHub"
-    },
-    "github": {
+    "platform": {
       "type": "object",
-      "description": "GitHub-specific configuration",
+      "description": "Git hosting platform configuration",
       "properties": {
-        "openActionPage": {
+        "type": {
+          "type": "string",
+          "description": "Git hosting provider type",
+          "enum": ["github", "gitlab", "bitbucket", "gitea"]
+        },
+        "base": {
+          "type": "string",
+          "description": "Base URL for the platform (e.g., https://github.com, https://gitlab.company.com). If not specified, uses official default for known platforms.",
+          "format": "uri"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "defaults": {
+      "type": "object",
+      "description": "Default behavior settings",
+      "properties": {
+        "openBrowser": {
           "type": "boolean",
-          "description": "Whether to open GitHub Actions page after push (true) or repository homepage (false)",
+          "description": "Whether to automatically open the browser to the repository actions/pipelines page after pushing a tag",
           "default": true
+        },
+        "autoPush": {
+          "type": "boolean",
+          "description": "Whether to automatically push tags to remote without prompting",
+          "default": false
         }
       },
       "additionalProperties": false
     }
   },
-  "required": ["gitHostingProvider"],
   "additionalProperties": false
 }
