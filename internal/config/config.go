@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -135,35 +134,7 @@ func DetectPlatformFromURL(rawURL string) PlatformType {
 		return PlatformBitbucket
 	}
 
-	// 检测 Gitea（通常有特定的路径模式或自定义域名）
-	// Gitea 通常部署在自定义域名上，这里通过一些启发式规则检测
-	if isGiteaHost(host) {
-		return PlatformGitea
-	}
-
 	return ""
-}
-
-// isGiteaHost 通过启发式规则检测是否是 Gitea 主机
-func isGiteaHost(host string) bool {
-	// 常见的 Gitea 路径特征
-	giteaPatterns := []string{
-		`gitea`,
-		`git\.`,
-		`code\.`,
-		`src\.`,
-		`repo\.`,
-	}
-
-	hostLower := strings.ToLower(host)
-	for _, pattern := range giteaPatterns {
-		matched, _ := regexp.MatchString(pattern, hostLower)
-		if matched {
-			return true
-		}
-	}
-
-	return false
 }
 
 // GetDefaultBaseURL 获取平台的默认基础 URL

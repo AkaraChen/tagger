@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"os/exec"
 	"runtime"
-	"strings"
 
 	"github.com/AkaraChen/tagger/internal/config"
 	"github.com/AkaraChen/tagger/internal/git"
@@ -85,7 +84,7 @@ func OpenRepository(cfg *config.Config, gitClient *git.GitClient) error {
 			return fmt.Errorf("failed to open browser: %w", err)
 		}
 
-		if isActionsURL(targetURL, platformType) {
+		if actionsPath := config.GetActionsPath(platformType); actionsPath != "" {
 			fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening %s: %s", getActionsPageName(platformType), targetURL)))
 		} else {
 			fmt.Println(ui.SuccessStyle.Render(fmt.Sprintf("✓ Opening %s in browser...", targetURL)))
@@ -93,15 +92,6 @@ func OpenRepository(cfg *config.Config, gitClient *git.GitClient) error {
 	}
 
 	return nil
-}
-
-// isActionsURL 检查 URL 是否是 actions/pipelines 页面
-func isActionsURL(targetURL string, platformType config.PlatformType) bool {
-	actionsPath := config.GetActionsPath(platformType)
-	if actionsPath == "" {
-		return false
-	}
-	return strings.HasSuffix(targetURL, actionsPath)
 }
 
 // getActionsPageName 获取 Actions 页面的显示名称

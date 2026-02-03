@@ -136,16 +136,7 @@ func TestDetectPlatformFromURL(t *testing.T) {
 			url:      "git@bitbucket.org:user/repo.git",
 			expected: PlatformBitbucket,
 		},
-		{
-			name:     "Gitea with gitea in domain",
-			url:      "https://gitea.example.com/user/repo.git",
-			expected: PlatformGitea,
-		},
-		{
-			name:     "Gitea with git subdomain",
-			url:      "https://git.example.com/user/repo.git",
-			expected: PlatformGitea,
-		},
+
 		{
 			name:     "Unknown platform",
 			url:      "https://example.com/user/repo.git",
