@@ -24,11 +24,16 @@ type TagOptions struct {
 // RunTag 执行 tag 创建命令
 func RunTag(opts TagOptions) error {
 	gitClient := git.NewGitClient(".")
-	versionMgr := semver.NewVersionManager()
 
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// 创建版本管理器（使用配置的模板）
+	versionMgr, err := createVersionManager(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create version manager: %w", err)
 	}
 
 	isRepo, err := gitClient.IsGitRepository()
@@ -59,7 +64,7 @@ func RunTag(opts TagOptions) error {
 
 	ctx := &tagContext{
 		versionMgr:     versionMgr,
-		selector:       version.NewSelector(),
+		selector:       version.NewSelectorWithVersionManager(versionMgr),
 		versions:       versions,
 		currentVersion: versionMgr.GetLatestVersion(versions),
 		opts:           opts,
@@ -199,4 +204,10 @@ func RunTag(opts TagOptions) error {
 	}
 
 	return nil
+}
+
+// createVersionManager 根据配置创建版本管理器
+func createVersionManager(cfg *config.Config) (*semver.VersionManager, error) {
+	release, preRelease := cfg.GetTagTemplate()
+	return semver.NewVersionManagerFromConfig(release, preRelease)
 }

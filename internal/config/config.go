@@ -24,11 +24,18 @@ type GitHubConfig struct {
 	OpenActionPage *bool `json:"openActionPage,omitempty"`
 }
 
+// TagTemplateConfig 定义 tag 格式模板
+type TagTemplateConfig struct {
+	Release    string `json:"release,omitempty"`
+	PreRelease string `json:"preRelease,omitempty"`
+}
+
 // Config 工具的配置文件结构
 type Config struct {
 	Schema             string             `json:"$schema,omitempty"`
 	GitHostingProvider GitHostingProvider `json:"gitHostingProvider"`
 	GitHub             *GitHubConfig      `json:"github,omitempty"`
+	TagTemplate        *TagTemplateConfig `json:"tagTemplate,omitempty"`
 }
 
 // Load 从当前目录加载配置文件
@@ -70,6 +77,14 @@ func (c *Config) IsGitHub() bool {
 		return false
 	}
 	return c.GitHostingProvider == GitHub
+}
+
+// GetTagTemplate 返回 tag 模板配置，如果未配置则返回空字符串（由调用方使用默认值）
+func (c *Config) GetTagTemplate() (release, preRelease string) {
+	if c == nil || c.TagTemplate == nil {
+		return "", ""
+	}
+	return c.TagTemplate.Release, c.TagTemplate.PreRelease
 }
 
 // CreateDefault 创建默认配置文件

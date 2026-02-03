@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/AkaraChen/tagger/internal/template"
 	"github.com/Masterminds/semver/v3"
 )
 
@@ -33,28 +34,69 @@ type LatestPreReleases struct {
 }
 
 // VersionManager 管理语义化版本
-type VersionManager struct{}
-
-// NewVersionManager 创建一个新的 VersionManager
-func NewVersionManager() *VersionManager {
-	return &VersionManager{}
+type VersionManager struct {
+	template *template.TagTemplate
 }
 
-// ParseTags 解析 tags，返回符合 semver 格式的版本列表
+// NewVersionManager 创建一个新的 VersionManager（使用默认模板）
+func NewVersionManager() *VersionManager {
+	return &VersionManager{
+		template: template.NewDefaultTagTemplate(),
+	}
+}
+
+// NewVersionManagerWithTemplate 创建一个使用自定义模板的 VersionManager
+func NewVersionManagerWithTemplate(tmpl *template.TagTemplate) *VersionManager {
+	if tmpl == nil {
+		tmpl = template.NewDefaultTagTemplate()
+	}
+	return &VersionManager{
+		template: tmpl,
+	}
+}
+
+// NewVersionManagerFromConfig 根据模板配置字符串创建 VersionManager
+// 如果 release 和 preRelease 都为空，使用默认模板
+func NewVersionManagerFromConfig(release, preRelease string) (*VersionManager, error) {
+	if release == "" && preRelease == "" {
+		return NewVersionManager(), nil
+	}
+
+	tmpl, err := template.NewTagTemplate(release, preRelease)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewVersionManagerWithTemplate(tmpl), nil
+}
+
+// Template 返回当前使用的模板
+func (vm *VersionManager) Template() *template.TagTemplate {
+	return vm.template
+}
+
+// ParseTags 解析 tags，返回符合模板格式的版本列表
 func (vm *VersionManager) ParseTags(tags []string) ([]*semver.Version, error) {
 	var versions []*semver.Version
 
 	for _, tag := range tags {
-		// 移除 v 前缀（如果有）
-		versionStr := strings.TrimPrefix(tag, "v")
-
-		// 尝试解析
-		v, err := semver.NewVersion(versionStr)
+		// 使用模板解析 tag
+		parsed, err := vm.template.Parse(tag)
 		if err != nil {
-			// 跳过不符合 semver 格式的 tag
+			// 跳过不符合模板格式的 tag
 			continue
 		}
 
+		// 构建 semver 兼容的版本字符串
+		versionStr := fmt.Sprintf("%d.%d.%d", parsed.Major, parsed.Minor, parsed.Patch)
+		if parsed.IsPreRelease() {
+			versionStr += fmt.Sprintf("-%s-%d", parsed.PreType, parsed.PreNum)
+		}
+
+		v, err := semver.NewVersion(versionStr)
+		if err != nil {
+			continue
+		}
 		versions = append(versions, v)
 	}
 
@@ -97,9 +139,15 @@ func (vm *VersionManager) BumpPatch(v *semver.Version) *semver.Version {
 	return &newVersion
 }
 
-// FormatVersion 格式化版本号为 vX.Y.Z 格式
+// FormatVersion 使用模板格式化版本号
 func (vm *VersionManager) FormatVersion(v *semver.Version) string {
-	return fmt.Sprintf("v%s", v.String())
+	if vm.IsPreRelease(v) {
+		info := vm.GetPreReleaseInfo(v)
+		if info != nil {
+			return vm.template.FormatPreRelease(v.Major(), v.Minor(), v.Patch(), string(info.Type), info.Number)
+		}
+	}
+	return vm.template.Format(v.Major(), v.Minor(), v.Patch())
 }
 
 // CalculateNewVersion 根据更新类型计算新版本号
@@ -122,31 +170,45 @@ func (vm *VersionManager) IsPreRelease(v *semver.Version) bool {
 }
 
 // GetPreReleaseInfo parses the pre-release suffix and returns type and number
-// Expected format: alpha-1, beta-2, rc-1
+// Supports formats like "alpha-1", "beta-2", "rc-1" as well as custom formats
 func (vm *VersionManager) GetPreReleaseInfo(v *semver.Version) *PreReleaseInfo {
 	prerelease := v.Prerelease()
 	if prerelease == "" {
 		return nil
 	}
 
-	// Match patterns like "alpha-1", "beta-2", "rc-1"
-	re := regexp.MustCompile(`^(alpha|beta|rc)-(\d+)$`)
-	matches := re.FindStringSubmatch(prerelease)
-	if matches == nil {
-		return nil
+	// Try common patterns: "type-num" or "type.num"
+	patterns := []string{
+		`^([a-zA-Z]+)-(\d+)$`,
+		`^([a-zA-Z]+)\.(\d+)$`,
 	}
 
-	num, _ := strconv.Atoi(matches[2])
-	return &PreReleaseInfo{
-		Type:   PreReleaseType(matches[1]),
-		Number: num,
+	for _, pattern := range patterns {
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(prerelease)
+		if matches != nil {
+			num, _ := strconv.Atoi(matches[2])
+			return &PreReleaseInfo{
+				Type:   PreReleaseType(matches[1]),
+				Number: num,
+			}
+		}
 	}
+
+	return nil
 }
 
 // SetPreRelease creates a new version with the specified pre-release type and number
+// The internal semver representation uses "type-num" format for compatibility
 func (vm *VersionManager) SetPreRelease(v *semver.Version, preType PreReleaseType, num int) (*semver.Version, error) {
+	// Internal semver format always uses "type-num" for consistency
 	versionStr := fmt.Sprintf("%d.%d.%d-%s-%d", v.Major(), v.Minor(), v.Patch(), preType, num)
 	return semver.NewVersion(versionStr)
+}
+
+// FormatPreReleaseTag formats a pre-release version using the template
+func (vm *VersionManager) FormatPreReleaseTag(v *semver.Version, preType PreReleaseType, num int) string {
+	return vm.template.FormatPreRelease(v.Major(), v.Minor(), v.Patch(), string(preType), num)
 }
 
 // BumpPreRelease increments the pre-release number (alpha-1 → alpha-2)

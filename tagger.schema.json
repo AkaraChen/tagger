@@ -26,6 +26,33 @@
         }
       },
       "additionalProperties": false
+    },
+    "tagTemplate": {
+      "type": "object",
+      "description": "Tag format templates using placeholders. Supported placeholders: {major}, {minor}, {patch}, {preType}, {preNum}",
+      "properties": {
+        "release": {
+          "type": "string",
+          "description": "Template for release tags. Must contain {major}, {minor}, {patch} placeholders.",
+          "default": "v{major}.{minor}.{patch}",
+          "examples": [
+            "v{major}.{minor}.{patch}",
+            "{major}.{minor}.{patch}",
+            "release/v{major}.{minor}.{patch}"
+          ]
+        },
+        "preRelease": {
+          "type": "string",
+          "description": "Template for pre-release tags. Must contain {major}, {minor}, {patch}, {preType}, {preNum} placeholders.",
+          "default": "v{major}.{minor}.{patch}-{preType}-{preNum}",
+          "examples": [
+            "v{major}.{minor}.{patch}-{preType}-{preNum}",
+            "{major}.{minor}.{patch}-{preType}.{preNum}",
+            "release/v{major}.{minor}.{patch}-{preType}-{preNum}"
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": ["gitHostingProvider"],

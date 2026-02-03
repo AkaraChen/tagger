@@ -42,10 +42,20 @@ type Selector struct {
 	vm *semver.VersionManager
 }
 
-// NewSelector 创建一个新的版本选择器
+// NewSelector 创建一个新的版本选择器（使用默认模板）
 func NewSelector() *Selector {
 	return &Selector{
 		vm: semver.NewVersionManager(),
+	}
+}
+
+// NewSelectorWithVersionManager 使用指定的 VersionManager 创建版本选择器
+func NewSelectorWithVersionManager(vm *semver.VersionManager) *Selector {
+	if vm == nil {
+		vm = semver.NewVersionManager()
+	}
+	return &Selector{
+		vm: vm,
 	}
 }
 
@@ -141,15 +151,15 @@ func (s *Selector) GetPreReleaseTypeOptions(
 		switch preType {
 		case semver.PreReleaseAlpha:
 			if latestPreReleases.Alpha != nil {
-				latestInfo = "v" + latestPreReleases.Alpha.String()
+				latestInfo = s.vm.FormatVersion(latestPreReleases.Alpha)
 			}
 		case semver.PreReleaseBeta:
 			if latestPreReleases.Beta != nil {
-				latestInfo = "v" + latestPreReleases.Beta.String()
+				latestInfo = s.vm.FormatVersion(latestPreReleases.Beta)
 			}
 		case semver.PreReleaseRC:
 			if latestPreReleases.RC != nil {
-				latestInfo = "v" + latestPreReleases.RC.String()
+				latestInfo = s.vm.FormatVersion(latestPreReleases.RC)
 			}
 		}
 
