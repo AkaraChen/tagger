@@ -3,6 +3,7 @@ package semver
 import (
 	"testing"
 
+	"github.com/AkaraChen/tagger/internal/template"
 	"github.com/Masterminds/semver/v3"
 )
 
@@ -32,9 +33,9 @@ func TestParseTags(t *testing.T) {
 			expected: 2,
 		},
 		{
-			name:     "tags without v prefix",
+			name:     "tags without v prefix are not matched by default template",
 			tags:     []string{"1.0.0", "2.0.0"},
-			expected: 2,
+			expected: 0, // Default template requires v prefix
 		},
 		{
 			name:     "empty tags",
@@ -45,6 +46,52 @@ func TestParseTags(t *testing.T) {
 			name:     "pre-release tags",
 			tags:     []string{"v1.0.0-alpha-1", "v1.0.0-beta-1", "v1.0.0-rc-1"},
 			expected: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			versions, err := vm.ParseTags(tt.tags)
+			if err != nil {
+				t.Fatalf("ParseTags returned error: %v", err)
+			}
+			if len(versions) != tt.expected {
+				t.Errorf("expected %d versions, got %d", tt.expected, len(versions))
+			}
+		})
+	}
+}
+
+func TestParseTagsWithCustomTemplate(t *testing.T) {
+	// Test with a template that doesn't require v prefix
+	tmpl, err := template.NewTagTemplate(
+		"{major}.{minor}.{patch}",
+		"{major}.{minor}.{patch}-{preType}-{preNum}",
+	)
+	if err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+	vm := NewVersionManagerWithTemplate(tmpl)
+
+	tests := []struct {
+		name     string
+		tags     []string
+		expected int
+	}{
+		{
+			name:     "tags without v prefix",
+			tags:     []string{"1.0.0", "2.0.0"},
+			expected: 2,
+		},
+		{
+			name:     "tags with v prefix are not matched",
+			tags:     []string{"v1.0.0", "v2.0.0"},
+			expected: 0, // This template doesn't support v prefix
+		},
+		{
+			name:     "pre-release tags without v prefix",
+			tags:     []string{"1.0.0-alpha-1", "1.0.0-beta-1"},
+			expected: 2,
 		},
 	}
 
@@ -517,5 +564,62 @@ func TestGetAllPreReleasesForBase(t *testing.T) {
 		if v.String() != expected[i] {
 			t.Errorf("expected %s at index %d, got %s", expected[i], i, v.String())
 		}
+	}
+}
+
+func TestFormatVersionWithCustomTemplate(t *testing.T) {
+	// Test with a template that uses different format
+	tmpl, err := template.NewTagTemplate(
+		"release/{major}.{minor}.{patch}",
+		"release/{major}.{minor}.{patch}-{preType}.{preNum}",
+	)
+	if err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+	vm := NewVersionManagerWithTemplate(tmpl)
+
+	// Test release version formatting
+	v, _ := semver.NewVersion("1.2.3")
+	result := vm.FormatVersion(v)
+	if result != "release/1.2.3" {
+		t.Errorf("expected release/1.2.3, got %s", result)
+	}
+
+	// Test pre-release version formatting
+	preV, _ := semver.NewVersion("1.2.3-alpha-1")
+	result = vm.FormatVersion(preV)
+	if result != "release/1.2.3-alpha.1" {
+		t.Errorf("expected release/1.2.3-alpha.1, got %s", result)
+	}
+}
+
+func TestNewVersionManagerWithTemplate(t *testing.T) {
+	// Test with nil template (should use default)
+	vm := NewVersionManagerWithTemplate(nil)
+	if vm == nil {
+		t.Fatal("NewVersionManagerWithTemplate returned nil")
+	}
+	if vm.Template() == nil {
+		t.Fatal("Template is nil")
+	}
+
+	// Test with custom template
+	tmpl, _ := template.NewTagTemplate(
+		"{major}.{minor}.{patch}",
+		"{major}.{minor}.{patch}-{preType}-{preNum}",
+	)
+	vm = NewVersionManagerWithTemplate(tmpl)
+	if vm.Template() != tmpl {
+		t.Error("Template not set correctly")
+	}
+}
+
+func TestFormatPreReleaseTag(t *testing.T) {
+	vm := NewVersionManager()
+	v, _ := semver.NewVersion("1.2.3")
+
+	result := vm.FormatPreReleaseTag(v, PreReleaseAlpha, 5)
+	if result != "v1.2.3-alpha-5" {
+		t.Errorf("expected v1.2.3-alpha-5, got %s", result)
 	}
 }

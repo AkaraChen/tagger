@@ -32,17 +32,17 @@ func (ctx *tagContext) displayVersionStatus() {
 	if hasPreReleases {
 		fmt.Println(ui.InfoStyle.Render("Latest pre-releases:"))
 		if latestPreReleases.Alpha != nil {
-			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  alpha: v%s", latestPreReleases.Alpha.String())))
+			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  alpha: %s", ctx.versionMgr.FormatVersion(latestPreReleases.Alpha))))
 		} else {
 			fmt.Println(ui.HelpStyle.Render("  alpha: (none)"))
 		}
 		if latestPreReleases.Beta != nil {
-			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  beta:  v%s", latestPreReleases.Beta.String())))
+			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  beta:  %s", ctx.versionMgr.FormatVersion(latestPreReleases.Beta))))
 		} else {
 			fmt.Println(ui.HelpStyle.Render("  beta:  (none)"))
 		}
 		if latestPreReleases.RC != nil {
-			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  rc:    v%s", latestPreReleases.RC.String())))
+			fmt.Println(ui.InfoStyle.Render(fmt.Sprintf("  rc:    %s", ctx.versionMgr.FormatVersion(latestPreReleases.RC))))
 		} else {
 			fmt.Println(ui.HelpStyle.Render("  rc:    (none)"))
 		}

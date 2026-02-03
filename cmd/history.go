@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/AkaraChen/tagger/internal/config"
 	"github.com/AkaraChen/tagger/internal/git"
 	"github.com/AkaraChen/tagger/internal/semver"
 	"github.com/AkaraChen/tagger/internal/ui"
@@ -32,7 +33,17 @@ func init() {
 func runHistory(limit int) error {
 	// 1. 初始化
 	gitClient := git.NewGitClient(".")
-	versionMgr := semver.NewVersionManager()
+
+	// 加载配置并创建版本管理器
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	versionMgr, err := createVersionManagerForHistory(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create version manager: %w", err)
+	}
 
 	// 2. 检查是否在 git 仓库中
 	isRepo, err := gitClient.IsGitRepository()
@@ -116,4 +127,10 @@ func runHistory(limit int) error {
 	}
 
 	return nil
+}
+
+// createVersionManagerForHistory 根据配置创建版本管理器
+func createVersionManagerForHistory(cfg *config.Config) (*semver.VersionManager, error) {
+	release, preRelease := cfg.GetTagTemplate()
+	return semver.NewVersionManagerFromConfig(release, preRelease)
 }
